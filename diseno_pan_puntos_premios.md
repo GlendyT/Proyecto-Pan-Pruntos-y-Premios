@@ -410,7 +410,10 @@ public class ProductoIndividual extends ItemVenta {
 
     @Override
     public int calcularPuntos() {
-        return getCantidad() * 2;
+        if (producto.getCategoria() == Categoria.SANDWICH) {
+            return getCantidad() * 2;
+        }
+        return 0;
     }
 
     public Producto getProducto() {
@@ -437,7 +440,7 @@ public class MenuCompleto extends ItemVenta {
 }
 ```
 
-Nota: bebidas y acompañamientos vendidos sueltos deben representarse como `ProductoIndividual` cuyo `calcularPuntos()` general retorna `cantidad * 2` solo si `producto.getCategoria() == Categoria.SANDWICH`; de lo contrario retorna 0. Ajusta la condición dentro de `calcularPuntos()` según la categoría del producto.
+Bebidas y acompañamientos vendidos sueltos se representan también como `ProductoIndividual`, pero su `calcularPuntos()` retorna 0 porque la categoría no es `SANDWICH` (ver condición arriba). Así se cumple la regla del enunciado (sección 6.a): solo sándwiches individuales y menús completos otorgan puntos.
 
 ### 4.5 `Pedido` (composición + `ArrayList`)
 
@@ -708,11 +711,11 @@ Connection conexion = DriverManager.getConnection(url, "ADMIN", "tu_password");
 
 | Formulario | Componentes clave |
 |---|---|
-| `FormClientes` | `JTextField` búsqueda, `JTable` resultados, botones registrar/editar/desactivar |
+| `FormClientes` | `JTextField` búsqueda, `JTable` resultados, botones registrar/editar/desactivar, pestaña/botón "Historial de pedidos" (consulta `pedido` por `id_cliente`) y "Historial de puntos" (CU5, consulta `movimiento_puntos`) |
 | `FormProductos` | `JTable` catálogo, `JComboBox` categoría, validación de precio/existencia ≥ 0 |
 | `FormInventario` | `JComboBox` producto, `JSpinner` cantidad, `JTable` historial de movimientos |
-| `FormPedido` | Búsqueda de cliente, catálogo con `JComboBox`/lista, `JTable` de detalle del pedido, subtotal/total/puntos en vivo |
-| `FormCobro` | `JRadioButton` efectivo/tarjeta, cálculo de cambio, confirmación de aprobación simulada |
+| `FormPedido` | Búsqueda de cliente, saldo de puntos visible, catálogo con `JComboBox`/lista, controles de cantidad, `JTable` de detalle del pedido, botones agregar/eliminar ítem, subtotal/total/puntos en vivo, y botón "Cobrar" que abre `FormCobro` sobre el pedido `PENDIENTE` recién creado |
+| `FormCobro` | `JRadioButton` efectivo/tarjeta, cálculo de cambio, confirmación de aprobación simulada, botón "Generar comprobante" al confirmar el pago (cierra el ciclo de los componentes 9 y 10 del enunciado, sección 11) |
 | `FormFidelizacion` | Saldo de puntos, catálogo de recompensas, validación de canje |
 | `FormReportes` | `JTable` + filtros de fecha, uno por cada reporte obligatorio (sección 14 del enunciado) |
 
@@ -768,3 +771,9 @@ Cada formulario obtiene su `Connection` desde aquí y la pasa al DAO correspondi
 | 8 | Reportes mediante JTable | 2 | `FormReportes` |
 
 Pendiente de definir en la siguiente sesión: los procedimientos/queries SQL exactos de cada reporte del punto 14, y el detalle completo de `validarYDescontarExistencia` para `MenuCompleto` (debe descontar los 3 componentes vía `menu_detalle`, no el menú como unidad).
+
+---
+
+## 9. Base de datos: Oracle Cloud (Autonomous Database) en vez de Oracle XE
+
+El enunciado (sección 12) solo exige "Oracle Database" sin especificar edición, por lo que usar **Oracle Cloud Autonomous Database (Always Free)** en vez de una instalación local de Oracle XE es válido y es justamente lo que ya contempla la sección 6 de este documento (creación de la instancia, wallet, JDBC URL con `TNS_ADMIN`). Ventajas para el proyecto grupal: no requiere instalar Oracle localmente en cada máquina del equipo, todos se conectan a la misma base remota, y el nivel *Always Free* no tiene costo. La única diferencia práctica frente a XE es la conexión mTLS vía wallet (sección 6, pasos 2 y 4) en lugar de un `jdbc:oracle:thin:@localhost:1521:xe` directo.

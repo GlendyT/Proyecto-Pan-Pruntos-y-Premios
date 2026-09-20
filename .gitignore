@@ -4,9 +4,7 @@ Proyecto_Pan_Puntos_y_Premios.pdf
 target/
 *.class
 wallet/
+Wallet_*
 .idea/
 *.iml
 .vscode/
-
-Wallet_panpuntospremios/
-Wallet_panpuntospremios.zip

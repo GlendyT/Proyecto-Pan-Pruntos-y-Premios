@@ -182,6 +182,50 @@ Criterio de cierre: canjes e historiales funcionales, sin saldos negativos ni ca
 
 Criterio de cierre: flujo completo verificado, reportes confirmados y aplicación ejecutable con documentación suficiente.
 
+## Cómo se verá y correrá la interfaz (Fase 3 en adelante)
+
+La interfaz se construye con **Java Swing**, que es la librería de ventanas incluida en Java. No requiere instalar nada extra.
+
+### Dónde se crea
+Todos los formularios y ventanas van en el paquete `vista/`:
+```
+src/main/java/com/panpuntospremios/vista/
+├── VentanaPrincipal.java   — ventana principal con el menú de navegación
+├── FormClientes.java       — pantalla para registrar y buscar clientes
+├── FormProductos.java      — pantalla para administrar productos
+├── FormInventario.java     — pantalla para abastecer y ver historial
+├── FormPedido.java         — pantalla para crear pedidos
+├── FormCobro.java          — pantalla para cobrar un pedido
+├── FormFidelizacion.java   — pantalla para canjes y puntos
+└── FormReportes.java       — pantalla para ver reportes en tabla
+```
+
+### Cómo se conecta todo
+Cada formulario llama a un servicio, el servicio aplica las reglas del negocio y llama al DAO, y el DAO ejecuta el SQL contra Oracle:
+```
+Vista (formulario Swing)
+  → Servicio (reglas del negocio)
+    → DAO (consultas SQL)
+      → Oracle Cloud
+```
+
+### Cómo se corre
+Cuando la interfaz esté lista, `Main.java` se modificará para abrir la ventana principal en vez de solo probar la conexión.
+
+Opción 1 — comando corto (recomendado, equivalente a `npm start`):
+```bash
+mvn exec:java
+```
+
+Opción 2 — generar el JAR y correrlo:
+```bash
+mvn package && java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar
+```
+
+Ambas opciones abren la ventana de escritorio con el sistema completo. La diferencia es que `mvn exec:java` no genera el JAR, solo compila y corre directamente.
+
+---
+
 ## Decisiones y asuntos pendientes
 
 | Asunto | Propuesta o situación | Estado |

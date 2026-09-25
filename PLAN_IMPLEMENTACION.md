@@ -210,12 +210,19 @@ Vista (formulario Swing)
 ```
 
 ### Cómo se corre
-Cuando la interfaz esté lista, `Main.java` se modificará para abrir la ventana principal en vez de solo probar la conexión. Se corre igual que siempre:
+Cuando la interfaz esté lista, `Main.java` se modificará para abrir la ventana principal en vez de solo probar la conexión.
+
+Opción 1 — comando corto (recomendado, equivalente a `npm start`):
 ```bash
-mvn package
-java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar
+mvn exec:java
 ```
-Eso abrirá una ventana de escritorio con el sistema completo.
+
+Opción 2 — generar el JAR y correrlo:
+```bash
+mvn package && java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar
+```
+
+Ambas opciones abren la ventana de escritorio con el sistema completo. La diferencia es que `mvn exec:java` no genera el JAR, solo compila y corre directamente.
 
 ---
 

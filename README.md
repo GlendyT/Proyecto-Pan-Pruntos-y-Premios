@@ -11,7 +11,7 @@ Enunciado original: [`Proyecto_Pan_Puntos_y_Premios.pdf`](Proyecto_Pan_Puntos_y_
 
 | Herramienta | Versión usada | Notas |
 |---|---|---|
-| Java (JDK) | 21 | `java -version` para verificar |
+| Java (JDK) | 17 o superior | El proyecto genera bytecode compatible con Java 17; `java -version` para verificar |
 | Maven | 3.9.16 | `mvn -version` para verificar |
 
 ### Si no tienes Maven instalado
@@ -56,20 +56,103 @@ Ejecuta [`sql/ddl.sql`](sql/ddl.sql) contra la base usando **Database Actions** 
 
 ## 3. Cómo correr el proyecto
 
+Después de clonar el repositorio, configurar `.env` y colocar el wallet fuera del proyecto, compila y ejecuta la aplicación con:
+
+```bash
+mvn compile exec:java
+```
+
+Este es el comando recomendado durante el desarrollo porque primero actualiza las clases de `target/classes` y luego ejecuta `com.panpuntospremios.Main`.
+
+Se abrirá la ventana principal de Swing. La navegación disponible es:
+
+- **Clientes → Gestionar clientes**.
+- **Catálogo e inventario → Gestionar productos**.
+- **Catálogo e inventario → Gestionar menús**.
+- **Catálogo e inventario → Inventario y abastecimiento**.
+
+### Comandos de desarrollo y verificación
+
+| Objetivo | Comando | ¿Requiere Oracle? |
+|---|---|---|
+| Compilar el código | `mvn compile` | No |
+| Ejecutar las pruebas aisladas | `mvn test` | No |
+| Compilar y abrir la interfaz | `mvn compile exec:java` | La ventana principal no; los formularios con datos sí |
+| Generar el JAR ejecutable y ejecutar pruebas | `mvn package` | No |
+| Ejecutar el JAR generado | `java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar` | La ventana principal no; los formularios con datos sí |
+
+La suite normal utiliza H2 en memoria para probar persistencia y transacciones sin modificar Oracle. El resultado verificado actualmente es de 24 pruebas sin fallos:
+
+```bash
+mvn --batch-mode --no-transfer-progress test
+```
+
+Para ejecutar una sola clase de prueba:
+
+```bash
+mvn -Dtest=ProductoServicioTest test
+```
+
+En PowerShell, si el argumento `-D` se interpreta incorrectamente, se puede envolver entre comillas:
+
+```powershell
+mvn "-Dtest=ProductoServicioTest" test
+```
+
+### Pruebas opcionales contra Oracle
+
+Estas pruebas requieren `.env` y el wallet. Crean datos con identificadores únicos, cierran y vuelven a abrir conexiones, verifican la persistencia y eliminan exclusivamente los registros temporales en un bloque de limpieza. No forman parte de `mvn test` ni de GitHub Actions.
+
+Persistencia de clientes:
+
+```powershell
+mvn "-Dtest=ClienteDAOOraclePersistenciaIT" "-Doracle.it=true" test
+```
+
+Productos, menús e inventario:
+
+```powershell
+mvn "-Dtest=CatalogoInventarioOracleIT" "-Doracle.it=true" test
+```
+
+### Ejecutar el JAR
+
 ```bash
 mvn package
 java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar
 ```
 
-Si la conexión es correcta, verás:
+`mvn package` genera un `.jar` ejecutable con todas las dependencias incluidas gracias al `maven-shade-plugin` configurado en `pom.xml`. Debes volver a generarlo cuando cambie el código Java.
+
+Alternativa: abrir `Main.java` en tu IDE (VS Code / IntelliJ), dejar que Maven cargue las dependencias y usar **Run** sobre el método `main`.
+
+### Si no aparece la interfaz
+
+No uses solamente `mvn exec:java` inmediatamente después de clonar el repositorio o de modificar código. Ese objetivo ejecuta las clases que ya se encuentren compiladas en `target/classes`, pero no garantiza una compilación previa.
+
+Si solo aparece un mensaje como:
 
 ```
 Conexion exitosa a Oracle Cloud: jdbc:oracle:thin:@panpuntospremios_high
 ```
 
-`mvn package` genera un `.jar` con todas las dependencias incluidas (gracias al `maven-shade-plugin` configurado en `pom.xml`), así que no hace falta manejar el classpath manualmente. Solo necesitas repetir `mvn package` cuando cambies código Java.
+seguido inmediatamente de `BUILD SUCCESS`, Maven ejecutó una versión antigua de `Main.class` que únicamente probaba la conexión. Recompila y vuelve a ejecutar:
 
-Alternativa: abrir `Main.java` en tu IDE (VS Code / IntelliJ) y usar el botón **Run** sobre el método `main`.
+```bash
+mvn compile exec:java
+```
+
+Con la versión actual, Maven permanece en ejecución mientras la ventana esté abierta. Los avisos acerca de hilos `oracle.jdbc.diagnostics` que no finalizaron pertenecen a la antigua prueba de conexión y no indican un error de Swing.
+
+### Integración continua
+
+El workflow `.github/workflows/java-ci.yml` compila el proyecto y ejecuta las pruebas aisladas cuando se abre o actualiza un pull request desde cualquier rama hacia `development`.
+
+No se ejecuta por cada `push`, en pull requests dirigidos a otras ramas ni contra Oracle Cloud. Por ello no requiere `.env`, wallet o credenciales almacenadas en GitHub. Internamente utiliza:
+
+```bash
+mvn --batch-mode --no-transfer-progress test
+```
 
 ---
 
@@ -77,19 +160,26 @@ Alternativa: abrir `Main.java` en tu IDE (VS Code / IntelliJ) y usar el botón *
 
 ```
 Proyecto-Pan-Pruntos-y-Premios/
-├── pom.xml                          Dependencias: ojdbc11, oraclepki, osdt_core/cert, dotenv-java
-├── .env.example                     Plantilla de variables de entorno (sin datos reales)
-├── sql/ddl.sql                      Script de creación de tablas y datos de prueba
-├── diseno_pan_puntos_premios.md     Documento de diseño completo (ER, DDL, clases, casos de uso)
-├── Proyecto_Pan_Puntos_y_Premios.pdf  Enunciado original del proyecto
-└── src/main/java/com/panpuntospremios/
-    ├── Main.java                    Prueba de conexión a la base de datos
-    └── util/ConexionOracle.java     Conexión JDBC (lee credenciales desde .env)
+├── pom.xml                           Configuración, dependencias y plugins de Maven
+├── .env.example                      Plantilla de variables de entorno (sin datos reales)
+├── .github/workflows/java-ci.yml      Pruebas de PR dirigidos a development
+├── sql/ddl.sql                       Script de creación de tablas y datos de prueba
+├── diseno_pan_puntos_premios.md      Documento de diseño completo
+├── Proyecto_Pan_Puntos_y_Premios.pdf Enunciado original del proyecto
+└── src/
+    ├── main/java/com/panpuntospremios/
+    │   ├── Main.java                 Punto de entrada de la interfaz Swing
+    │   ├── vista/                    Ventana principal y formularios Swing
+    │   ├── modelo/                   Entidades y objetos del negocio
+    │   ├── dao/                      Acceso JDBC a Oracle
+    │   ├── servicio/                 Reglas y operaciones del negocio
+    │   └── util/                     Conexión JDBC y manejo de transacciones
+    └── test/java/com/panpuntospremios/ Pruebas aisladas e integraciones Oracle opcionales
 ```
 
 ---
 
-## 5. Dependencias de Maven (`pom.xml`)
+## 5. Dependencias y plugins de Maven (`pom.xml`)
 
 | Dependencia | Para qué sirve |
 |---|---|
@@ -97,7 +187,10 @@ Proyecto-Pan-Pruntos-y-Premios/
 | `com.oracle.database.security:oraclepki` | Permite al driver leer el `cwallet.sso` del wallet (autenticación SSO) |
 | `com.oracle.database.security:osdt_core` / `osdt_cert` | Librerías de soporte para `oraclepki` |
 | `io.github.cdimascio:dotenv-java` | Carga las variables del archivo `.env` en tiempo de ejecución |
+| `org.junit.jupiter:junit-jupiter` | Framework de pruebas automatizadas |
+| `com.h2database:h2` | Base en memoria usada únicamente durante las pruebas aisladas |
 | `org.apache.maven.plugins:maven-shade-plugin` | Empaqueta un `.jar` ejecutable con todas las dependencias incluidas |
+| `org.codehaus.mojo:exec-maven-plugin` | Ejecuta `Main` mediante `mvn exec:java` |
 
 ---
 

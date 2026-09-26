@@ -18,7 +18,20 @@ public class VentanaPrincipal extends JFrame {
         itemClientes.addActionListener(e -> abrirFormClientes());
         menuClientes.add(itemClientes);
 
+        JMenu menuCatalogo = new JMenu("Catálogo e inventario");
+        JMenuItem itemProductos = new JMenuItem("Gestionar productos");
+        JMenuItem itemMenus = new JMenuItem("Gestionar menús");
+        JMenuItem itemInventario = new JMenuItem("Inventario y abastecimiento");
+        itemProductos.addActionListener(e -> new FormProductos().setVisible(true));
+        itemMenus.addActionListener(e -> new FormMenus().setVisible(true));
+        itemInventario.addActionListener(e -> new FormInventario().setVisible(true));
+        menuCatalogo.add(itemProductos);
+        menuCatalogo.add(itemMenus);
+        menuCatalogo.addSeparator();
+        menuCatalogo.add(itemInventario);
+
         menuBar.add(menuClientes);
+        menuBar.add(menuCatalogo);
         setJMenuBar(menuBar);
 
         JLabel lblBienvenida = new JLabel("Bienvenido al sistema Pan, Puntos y Premios", SwingConstants.CENTER);

@@ -2,9 +2,9 @@
 
 Fecha de creación: 2026-09-20.
 
-Estado general: primeros dos puntos de la fase 1 completados; resto de la fase pendiente.
+Estado general: fases 2, 3 y 4 completadas; fase 1 en curso; fases 5 a 8 pendientes. Auditoría del repositorio actualizada el 2026-09-25.
 
-Este documento registra el alcance previsto, los avances, las verificaciones y las decisiones pendientes. El usuario autorizó iniciar los dos primeros puntos de la fase 1; el resto del plan permanece pendiente.
+Este documento registra el alcance previsto, los avances, las verificaciones y las decisiones pendientes. Las marcas reflejan los archivos presentes y las verificaciones disponibles en el repositorio al 2026-09-25.
 
 ## Cómo llevar el seguimiento
 
@@ -23,11 +23,11 @@ Este documento registra el alcance previsto, los avances, las verificaciones y l
 - [x] Guardar el plan en la raíz del proyecto.
 - [x] Obtener aprobación para iniciar los dos primeros puntos de la fase 1.
 
-El código actual contiene una prueba de conexión en `Main.java` y la conexión JDBC configurada mediante `.env` en `ConexionOracle.java`. El usuario informó que la conexión Java ya funcionó; esta revisión no volvió a probarla.
+El `Main.java` actual inicia `VentanaPrincipal` en el hilo de eventos de Swing. `FormClientes` obtiene la conexión JDBC configurada mediante `.env` en `ConexionOracle.java`. El usuario aportó una ejecución que confirmó la conexión a Oracle; la auditoría del 2026-09-25 verificó además la compilación, pero no repitió operaciones de escritura contra la base.
 
 El esquema local define 10 tablas: `cliente`, `producto`, `menu`, `menu_detalle`, `pedido`, `pedido_detalle`, `movimiento_inventario`, `movimiento_puntos`, `recompensa` y `canje`. El usuario confirmó que las tablas y columnas ya existen en Oracle. Los resultados aportados en `result.json` fueron revisados y concuerdan con el DDL en tablas, columnas, restricciones, valores predeterminados e identidades.
 
-El diseño propone Java Swing, JDBC, modelos, DAO y servicios. Sus ejemplos Java aún no están implementados como módulos del proyecto. No se encontraron pruebas automatizadas ni funciones o procedimientos almacenados en el SQL revisado.
+El proyecto ya contiene modelos, enums, excepciones, DAO y servicios para clientes, productos, menús e inventario, además de sus formularios Java Swing. La suite aislada actual contiene 24 pruebas automatizadas; las funciones o procedimientos almacenados siguen sin estar definidos en el SQL revisado.
 
 El PDF del enunciado mencionado en el README no está disponible en la ruta del proyecto. Queda pendiente confirmar los reportes obligatorios y cualquier exigencia específica de PL/SQL.
 
@@ -54,10 +54,10 @@ Las vistas invocarán servicios; los servicios coordinarán las reglas y los DAO
 
 | Fase | Alcance | Estado | Dependencias |
 |---|---|---|---|
-| 1 | Base técnica y esquema | En curso (puntos 1 y 2) | Inicio autorizado |
-| 2 | Modelos y reglas | Pendiente | Fase 1 |
-| 3 | Clientes y primera pantalla | Pendiente | Fase 2 |
-| 4 | Productos, menús e inventario | Pendiente | Fases 2 y 3 |
+| 1 | Base técnica y esquema | En curso (3 de 8 tareas verificadas) | Inicio autorizado |
+| 2 | Modelos y reglas | Completada (8 de 8 tareas verificadas) | Fase 1 |
+| 3 | Clientes y primera pantalla | Completada (7 de 7 tareas verificadas) | Fase 2 |
+| 4 | Productos, menús e inventario | Completada (9 de 9 tareas verificadas) | Fases 2 y 3 |
 | 5 | Pedidos | Pendiente | Fases 3 y 4 |
 | 6 | Cobro y acumulación de puntos | Pendiente | Fase 5 |
 | 7 | Recompensas y canjes | Pendiente | Fases 4 y 6 |
@@ -66,62 +66,79 @@ Las vistas invocarán servicios; los servicios coordinarán las reglas y los DAO
 ## Fase 1. Base técnica y esquema
 
 - [x] Verificar qué tablas, columnas y restricciones ya existen en Oracle.
-- [x] Crear `sql/verificar_esquema.sql` para revisar la estructura esperada.
-- [ ] Preparar ajustes incrementales necesarios conservando los datos existentes; no ejecutar de nuevo todo el DDL sobre tablas existentes.
+- [ ] Crear `sql/verificar_esquema.sql` para revisar la estructura esperada. **Se reportó como creado y ejecutado, pero el archivo no está presente ni registrado en Git; debe recuperarse o recrearse.**
+- [x] Preparar ajustes incrementales necesarios conservando los datos existentes; no ejecutar de nuevo todo el DDL sobre tablas existentes. **La verificación histórica no encontró diferencias que requirieran ajustes; por tanto, no correspondía generar ni ejecutar scripts de alteración.**
 - [ ] Separar los datos de prueba del script de creación del esquema.
 - [ ] Resolver la coherencia entre existencias iniciales e historial: el SQL actual carga existencias sin movimientos de abastecimiento. Revisar los datos reales antes de preparar una regularización.
 - [ ] Mejorar los mensajes de configuración faltante en `ConexionOracle.java`.
 - [ ] Revisar Maven, la versión Java documentada, el empaquetado y la plantilla `.env.example`.
-- [ ] Verificar compilación, conexión y compatibilidad del esquema.
+- [x] Verificar compilación, conexión y compatibilidad del esquema.
 
 Archivos previstos: `sql/verificar_esquema.sql`, scripts de ajustes y datos de prueba, `ConexionOracle.java`, `pom.xml`, `.env.example` y documentación de configuración.
 
 Criterio de cierre: conexión comprobada y esquema compatible, con evidencia de verificaciones y conservación de los datos existentes.
 
-Avance de los puntos 1 y 2: completados. El usuario ejecutó el script y aportó `result.json` (salida tabular de texto, aunque su extensión sea `.json`). La revisión encontró 10 tablas, 63 columnas y 34 restricciones con nombre con estado `OK` (107 comprobaciones). Las restricciones figuran habilitadas y validadas. El inventario de 104 filas incluye las 10 claves primarias, las tres claves únicas esperadas, las referencias de claves foráneas y los CHECK acordes con el DDL. También se revisaron los DEFAULT de las 63 columnas y las nueve identidades `ALWAYS`. No se detectaron errores Oracle en la salida. Esta evidencia verifica estructura; no certifica todavía los datos de negocio ni completa el resto de la fase 1.
+Auditoría detallada del 2026-09-25:
 
-Para repetir la verificación, abrir `sql/verificar_esquema.sql` en el cliente SQL conectado como propietario de las tablas y ejecutar sus consultas. Las secciones 1 a 3 muestran diferencias mediante la columna `ESTADO`; las secciones 4 y 5 requieren contrastar sus resultados con el DDL. Todas las sentencias son de solo lectura.
+1. **Verificación del esquema — completa.** La salida aportada registró 107 comprobaciones con estado `OK`.
+2. **Script repetible de verificación — pendiente.** `sql/verificar_esquema.sql` no existe en el árbol actual ni en el historial de Git, aunque hay evidencia de que se utilizó fuera del repositorio.
+3. **Ajustes incrementales — completa para el esquema verificado.** Al no encontrarse diferencias entre Oracle y el DDL esperado, no había ajustes que preparar. Si el esquema cambia, deberá repetirse la comparación antes de crear migraciones.
+4. **Separación de datos de prueba — pendiente.** `sql/ddl.sql` todavía mezcla las diez sentencias `CREATE TABLE` con los `INSERT` de clientes, productos, menú y recompensas.
+5. **Coherencia de existencias e historial — pendiente.** Los productos de ejemplo se insertan con existencias positivas, pero no se insertan movimientos de abastecimiento en `movimiento_inventario`.
+6. **Mensajes por configuración faltante — pendiente.** `ConexionOracle` permite que `.env` falte, pero pasa valores nulos a `DriverManager` sin indicar qué variable (`DB_URL`, `DB_USER` o `DB_PASSWORD`) debe configurarse.
+7. **Maven, Java, empaquetado y plantilla — pendiente parcialmente.** `mvn package` genera correctamente el JAR sombreado y su manifiesto contiene `Main-Class: com.panpuntospremios.Main`; `pom.xml` y el README ya coinciden en la compatibilidad con Java 17 o superior. Durante esta auditoría se retiró `.env.example` de `.gitignore`, pero el archivo sigue sin estar registrado en Git y su `DB_URL` está incompleto (`jdbc:oracle:thin:`), por lo que todavía no constituye una plantilla reproducible para un clon nuevo.
+8. **Compilación, conexión y compatibilidad — completa.** `mvn compile`, `mvn test` y `mvn package` finalizaron con `BUILD SUCCESS`; la conexión y la compatibilidad estructural cuentan con la evidencia aportada previamente. Desde el cierre de las fases 2 y 3 también existen pruebas automatizadas aisladas y una integración opcional con Oracle.
+
+Evidencia histórica de los puntos 1 y 2: el usuario ejecutó el script y aportó `result.json` (salida tabular de texto, aunque su extensión sea `.json`). La revisión encontró 10 tablas, 63 columnas y 34 restricciones con nombre con estado `OK` (107 comprobaciones). Las restricciones figuran habilitadas y validadas. El inventario de 104 filas incluye las 10 claves primarias, las tres claves únicas esperadas, las referencias de claves foráneas y los CHECK acordes con el DDL. También se revisaron los DEFAULT de las 63 columnas y las nueve identidades `ALWAYS`. No se detectaron errores Oracle en la salida. Esta evidencia verifica estructura; no certifica todavía los datos de negocio ni completa el resto de la fase 1. En la auditoría del 2026-09-25 se comprobó que `sql/verificar_esquema.sql` no está en el árbol de trabajo ni en el historial de Git, por lo que la tarea de conservar ese script vuelve a quedar pendiente.
+
+Cuando se recupere o recree `sql/verificar_esquema.sql`, se deberá ejecutar en el cliente SQL conectado como propietario de las tablas y conservarlo en Git para que cualquier integrante pueda repetir la verificación.
 
 ## Fase 2. Modelos y reglas
 
-- [ ] Crear `Cliente`, `Producto`, `Menu`, `Pedido` y `Recompensa`.
-- [ ] Crear `ItemVenta`, `ProductoIndividual` y `MenuCompleto`, aplicando herencia y polimorfismo.
-- [ ] Crear los modelos de detalle, movimientos y canjes necesarios.
-- [ ] Crear enums para categorías, estados, métodos de pago y tipos de movimiento.
-- [ ] Crear excepciones para validaciones, inventario insuficiente, puntos insuficientes y pago rechazado.
-- [ ] Implementar importes con `BigDecimal` y validar cantidades positivas.
-- [ ] Implementar el cálculo de puntos: 2 por sándwich individual, 8 por menú completo y 0 por bebida o acompañamiento individual.
-- [ ] Probar totales y puntos de pedidos mixtos, cantidades inválidas y límites relevantes.
+- [x] Crear `Cliente`, `Producto`, `Menu`, `Pedido` y `Recompensa`.
+- [x] Crear `ItemVenta`, `ProductoIndividual` y `MenuCompleto`, aplicando herencia y polimorfismo.
+- [x] Crear los modelos de detalle, movimientos y canjes necesarios.
+- [x] Crear enums para categorías, estados, métodos de pago y tipos de movimiento.
+- [x] Crear excepciones para validaciones, inventario insuficiente, puntos insuficientes y pago rechazado.
+- [x] Implementar importes con `BigDecimal` y validar cantidades positivas.
+- [x] Implementar el cálculo de puntos: 2 por sándwich individual, 8 por menú completo y 0 por bebida o acompañamiento individual.
+- [x] Probar totales y puntos de pedidos mixtos, cantidades inválidas y límites relevantes.
 
 Archivos previstos: clases en `modelo/`, `enums/`, `excepcion/` y pruebas de reglas en `src/test/java/`.
 
 Criterio de cierre: cálculos y validaciones comprobados sin depender de la interfaz ni de una conexión a Oracle.
 
+Verificación del 2026-09-25: `ItemVenta` conserva los importes con `BigDecimal`, exige cantidades mayores que cero y rechaza precios nulos o negativos mediante `ValidacionException`. Se agregó `ItemVentaTest` con seis pruebas para pedido mixto, precisión decimal, reglas de puntos, cantidades inválidas, precios inválidos y una cantidad alta. `mvn test` terminó con `BUILD SUCCESS`: 6 pruebas ejecutadas, 0 fallos, 0 errores y 0 omitidas. La fase cumple su criterio de cierre sin interfaz ni conexión a Oracle.
+
 ## Fase 3. Clientes y primera pantalla
 
-- [ ] Crear `ClienteDAO` y su implementación JDBC con `PreparedStatement`.
-- [ ] Crear `ClienteServicio` para registro, búsqueda, edición y desactivación.
-- [ ] Validar identificadores duplicados y datos obligatorios.
-- [ ] Crear `VentanaPrincipal` y `FormClientes`.
-- [ ] Adaptar `Main.java` para iniciar Swing.
-- [ ] Ejecutar operaciones de base de datos en segundo plano y actualizar la interfaz en el hilo de Swing.
-- [ ] Verificar que los cambios se conserven al cerrar y volver a abrir la aplicación.
+- [x] Crear `ClienteDAO` y su implementación JDBC con `PreparedStatement`.
+- [x] Crear `ClienteServicio` para registro, búsqueda, edición y desactivación.
+- [x] Validar identificadores duplicados, datos obligatorios y formatos de identificador, nombre, teléfono y correo.
+- [x] Crear `VentanaPrincipal` y `FormClientes`.
+- [x] Adaptar `Main.java` para iniciar Swing.
+- [x] Ejecutar operaciones de base de datos en segundo plano y actualizar la interfaz en el hilo de Swing.
+- [x] Verificar que los cambios se conserven al cerrar y volver a abrir la aplicación.
 
 Criterio de cierre: administrar clientes desde la interfaz con persistencia en Oracle y mensajes comprensibles de error.
 
+Verificación del 2026-09-25: `FormClientes` usa `SwingWorker` para conexión, consultas y escrituras JDBC; los resultados y mensajes se procesan en `done()`, dentro del hilo de eventos de Swing. Los controles se deshabilitan durante cada operación y la conexión se cierra al cerrar el formulario. El formulario impide introducir números en el nombre, letras en el teléfono y un signo como primer carácter del identificador; el correo se valida al guardar. `ClienteServicio` aplica las reglas completas tanto al registrar como al editar, evitando que puedan omitirse desde otra interfaz. `ClienteDAOPersistenciaTest` verifica registro, edición y desactivación mediante conexiones nuevas usando H2 en memoria, sin depender de Oracle ni modificar datos compartidos. La integración opcional `ClienteDAOOraclePersistenciaIT` registró un cliente temporal en Oracle, cerró y reabrió conexiones, verificó la edición y eliminó el mismo registro en `finally`. La suite aislada terminó con 16 pruebas correctas y la integración Oracle con 1 prueba correcta; ambas finalizaron con `BUILD SUCCESS`. La fase cumple su criterio de cierre.
+
 ## Fase 4. Productos, menús e inventario
 
-- [ ] Crear DAO y servicios de productos y menús.
-- [ ] Crear `InventarioServicio` y persistencia de movimientos.
-- [ ] Crear `FormProductos`, `FormMenus` y `FormInventario`.
-- [ ] Implementar registro, edición y desactivación de productos y menús.
-- [ ] Validar menús con un sándwich, una bebida y un acompañamiento.
-- [ ] Implementar abastecimiento con cantidad positiva.
-- [ ] Actualizar existencias y registrar movimientos dentro de la misma transacción.
-- [ ] Mostrar existencias e historial de movimientos.
-- [ ] Verificar que una operación fallida no deje cambios parciales.
+- [x] Crear DAO y servicios de productos y menús.
+- [x] Crear `InventarioServicio` y persistencia de movimientos.
+- [x] Crear `FormProductos`, `FormMenus` y `FormInventario`.
+- [x] Implementar registro, edición y desactivación de productos y menús.
+- [x] Validar menús con un sándwich, una bebida y un acompañamiento.
+- [x] Implementar abastecimiento con cantidad positiva.
+- [x] Actualizar existencias y registrar movimientos dentro de la misma transacción.
+- [x] Mostrar existencias e historial de movimientos.
+- [x] Verificar que una operación fallida no deje cambios parciales.
 
 Criterio de cierre: catálogo y menús administrables, con abastecimiento e historial coherentes.
+
+Verificación del 2026-09-25: se implementaron `ProductoDAO`, `MenuDAO` y `MovimientoInventarioDAO` con sus implementaciones JDBC, además de `ProductoServicio`, `MenuServicio` e `InventarioServicio`. Los menús exigen exactamente un producto activo de cada categoría. El abastecimiento bloquea el producto con `SELECT ... FOR UPDATE` y actualiza existencia y movimiento mediante `Transaccion`; una prueba fuerza el fallo del movimiento y confirma que la existencia vuelve a su valor original. `FormProductos`, `FormMenus` y `FormInventario` ejecutan JDBC en segundo plano, permiten administrar el catálogo y muestran existencias e historial. `mvn test` terminó con 24 pruebas correctas. La integración opcional `CatalogoInventarioOracleIT` creó productos, menú, componentes y abastecimiento temporales en Oracle, verificó los datos tras reconectar y los eliminó al finalizar; terminó con `BUILD SUCCESS`. La fase cumple su criterio de cierre.
 
 ## Fase 5. Pedidos
 
@@ -193,7 +210,9 @@ src/main/java/com/panpuntospremios/vista/
 ├── VentanaPrincipal.java   — ventana principal con el menú de navegación
 ├── FormClientes.java       — pantalla para registrar y buscar clientes
 ├── FormProductos.java      — pantalla para administrar productos
+├── FormMenus.java          — pantalla para administrar menús y sus componentes
 ├── FormInventario.java     — pantalla para abastecer y ver historial
+├── FormularioAsincrono.java — base reutilizable para JDBC fuera del hilo visual
 ├── FormPedido.java         — pantalla para crear pedidos
 ├── FormCobro.java          — pantalla para cobrar un pedido
 ├── FormFidelizacion.java   — pantalla para canjes y puntos
@@ -210,11 +229,11 @@ Vista (formulario Swing)
 ```
 
 ### Cómo se corre
-Cuando la interfaz esté lista, `Main.java` se modificará para abrir la ventana principal en vez de solo probar la conexión.
+El `Main.java` actual abre `VentanaPrincipal` mediante el hilo de eventos de Swing, en vez de limitarse a probar la conexión.
 
-Opción 1 — comando corto (recomendado, equivalente a `npm start`):
+Opción 1 — compilar y ejecutar directamente con Maven (recomendada durante el desarrollo):
 ```bash
-mvn exec:java
+mvn compile exec:java
 ```
 
 Opción 2 — generar el JAR y correrlo:
@@ -222,7 +241,60 @@ Opción 2 — generar el JAR y correrlo:
 mvn package && java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar
 ```
 
-Ambas opciones abren la ventana de escritorio con el sistema completo. La diferencia es que `mvn exec:java` no genera el JAR, solo compila y corre directamente.
+Ambas opciones abren la ventana principal de escritorio. Los módulos implementados se encuentran en **Clientes → Gestionar clientes** y en las tres opciones de **Catálogo e inventario**.
+
+`mvn exec:java` por sí solo ejecuta las clases que ya existan en `target/classes`, pero no garantiza que el código fuente se compile antes. Por ello, después de clonar el repositorio o modificar archivos Java se debe usar `mvn compile exec:java`. Una vez compilada la versión actual, `mvn exec:java` puede utilizarse para volver a ejecutarla sin recompilar. La opción con `mvn package` crea además el JAR ejecutable con sus dependencias.
+
+### Diagnóstico: se ejecuta una versión antigua y no aparece la interfaz
+
+Si el comando muestra únicamente un mensaje como `Conexion exitosa a Oracle Cloud` y termina con `BUILD SUCCESS`, se está ejecutando un `Main.class` antiguo que solo probaba la conexión. El `Main.java` actual inicia Swing y mantiene el proceso activo mientras la ventana esté abierta.
+
+La solución normal es recompilar y ejecutar:
+
+```bash
+mvn compile exec:java
+```
+
+Los avisos de Maven sobre hilos `oracle.jdbc.diagnostics` que permanecen activos pueden proceder de esa antigua prueba JDBC; no son la causa de que falte la interfaz. Después de recompilar, la ventana principal debe aparecer y Maven permanecerá en ejecución hasta que se cierre.
+
+### Comandos reproducibles de compilación y pruebas
+
+Compilar sin ejecutar la aplicación:
+
+```bash
+mvn compile
+```
+
+Ejecutar las 24 pruebas aisladas, sin wallet ni conexión a Oracle:
+
+```bash
+mvn test
+```
+
+El comando equivalente usado por GitHub Actions es:
+
+```bash
+mvn --batch-mode --no-transfer-progress test
+```
+
+Generar el JAR sombreado; `package` también compila y ejecuta las pruebas aisladas:
+
+```bash
+mvn package
+```
+
+Las integraciones reales con Oracle están excluidas de la suite normal y deben habilitarse explícitamente. En PowerShell:
+
+```powershell
+mvn "-Dtest=ClienteDAOOraclePersistenciaIT" "-Doracle.it=true" test
+mvn "-Dtest=CatalogoInventarioOracleIT" "-Doracle.it=true" test
+```
+
+Ambas integraciones usan datos temporales únicos y ejecutan su limpieza al finalizar. No deben añadirse al workflow de CI porque requieren `.env`, wallet y acceso a la base compartida.
+
+### GitHub Actions
+
+`.github/workflows/java-ci.yml` se activa únicamente para pull requests desde cualquier rama cuyo destino sea `development`. Usa JDK 17, caché de Maven, permisos de lectura y la suite aislada; no recibe secretos de Oracle.
 
 ---
 
@@ -230,13 +302,13 @@ Ambas opciones abren la ventana de escritorio con el sistema completo. La difere
 
 | Asunto | Propuesta o situación | Estado |
 |---|---|---|
-| Interfaz | Java Swing, conforme al diseño existente | Incluido en el plan; pendiente de aprobación |
-| Lógica de negocio | Servicios Java y DAO JDBC; no duplicar reglas entre capas | Incluido en el plan; pendiente de aprobación |
+| Interfaz | Java Swing, conforme al diseño existente | Implementada para clientes, productos, menús e inventario |
+| Lógica de negocio | Servicios Java y DAO JDBC; no duplicar reglas entre capas | Implementada y probada para fases 2 a 4 |
 | PL/SQL | Confirmar si el enunciado exige funciones o procedimientos almacenados | Pendiente |
 | Reportes | Confirmar la sección de reportes del PDF original | Pendiente |
 | Anulaciones | Permitir inicialmente anular pedidos pendientes; definir aparte devoluciones de ventas pagadas y reversión de puntos/inventario | Pendiente de confirmar |
 | Entrega de pedidos | Definir el uso del estado `ENTREGADO` en la interfaz | Pendiente de confirmar |
-| Menús | Un componente de cada categoría; el esquema actual no garantiza por sí solo esta composición | Validar en fase 4 |
+| Menús | Un componente de cada categoría; el esquema actual no garantiza por sí solo esta composición | Validado en `MenuServicio`; fase 4 completada |
 | Inventario inicial | Datos de ejemplo con stock, pero sin movimientos de abastecimiento | Resolver en fase 1 |
 | Cobro con tarjeta | Simulado, según el documento de diseño | Incluido en el plan; pendiente de aprobación |
 | Android/API | El diseño lo marca como extra; no forma parte de estas ocho fases | Opcional, fuera del alcance inicial |
@@ -249,5 +321,13 @@ Ambas opciones abren la ventana de escritorio con el sistema completo. La difere
 | 2026-09-20 | Documentación del plan | Creación de este documento a solicitud del usuario | `PLAN_IMPLEMENTACION.md` | Plan con tareas, criterios de cierre, decisiones y bitácora | Implementación pendiente de aprobación |
 | 2026-09-20 | Fase 1, puntos 1 y 2 | Inicio autorizado; usuario confirma tablas y columnas existentes; creación del script de verificación de solo lectura | `sql/verificar_esquema.sql`, `PLAN_IMPLEMENTACION.md` | Revisión estática de cobertura contra DDL: 10 tablas, 63 columnas, 34 restricciones con nombre; inventarios para revisión manual | Ejecutar consultas en Oracle y registrar diferencias o conformidad; no se modificó la base |
 | 2026-09-20 | Fase 1, cierre de puntos 1 y 2 | Revisión de la ejecución aportada por el usuario | `PLAN_IMPLEMENTACION.md`; evidencia: `result.json` | 107 estados OK; claves, CHECK y DEFAULT revisados; nueve identidades ALWAYS; sin errores Oracle detectados | Resto de la fase 1 pendiente; no se modificó la base |
+| 2026-09-25 | Diagnóstico de ejecución de la interfaz | Se comparó el código fuente con el bytecode de `target/classes`; se detectó que `mvn exec:java` ejecutaba un `Main.class` antiguo dedicado a probar Oracle. Se recompilaron 29 archivos y se documentó el comando correcto | `PLAN_IMPLEMENTACION.md`, `README.md`; clases generadas en `target/classes` | `mvn compile` terminó con `BUILD SUCCESS`; el bytecode actualizado crea `VentanaPrincipal` mediante `SwingUtilities.invokeLater` | Continuar las fases funcionales pendientes |
+| 2026-09-25 | Auditoría de avance por fases | Se contrastaron todas las tareas con el árbol actual, el código y el historial completo de Git; se actualizaron marcas y estados | `PLAN_IMPLEMENTACION.md` | Fase 1: 3/8; fase 2: 6/8; fase 3: 5/7; fases 4–8 sin tareas completas. `mvn compile`, `mvn test` y `mvn package` terminaron con `BUILD SUCCESS`; no hay pruebas para ejecutar | Recuperar `sql/verificar_esquema.sql`, separar datos de prueba, regularizar el inventario inicial, validar configuración, alinear Java y versionar `.env.example`; además, completar las tareas pendientes de fases posteriores |
+| 2026-09-25 | Cierre de fase 2 | Se añadieron validaciones de cantidad y precio a `ItemVenta`, se habilitó JUnit Jupiter y se probaron cálculos y reglas del modelo | `pom.xml`, `ValidacionException.java`, `ItemVenta.java`, `ItemVentaTest.java`, `PLAN_IMPLEMENTACION.md` | `mvn test`: 6 pruebas, 0 fallos, 0 errores, 0 omitidas; `BUILD SUCCESS` | Continuar fase 3; los pendientes no bloqueantes de fase 1 permanecen registrados |
+| 2026-09-25 | Cierre de fase 3 | Se movieron conexión y CRUD de clientes a `SwingWorker`, se añadió cierre de recursos y se verificó persistencia con conexiones nuevas en una base aislada y en Oracle | `FormClientes.java`, `ClienteDAOPersistenciaTest.java`, `ClienteDAOOraclePersistenciaIT.java`, `pom.xml`, `PLAN_IMPLEMENTACION.md` | Suite aislada: 7 pruebas correctas. Integración Oracle: 1 prueba correcta, con alta y eliminación del cliente temporal; ambos comandos terminaron con `BUILD SUCCESS` | Considerar CI con GitHub Actions; continuar fase 4 y resolver antes la coherencia del inventario inicial de fase 1 |
+| 2026-09-25 | Corrección de validaciones de clientes | Se reemplazaron las comprobaciones mínimas por reglas de formato en servicio y filtros de entrada en registro y edición | `ClienteServicio.java`, `FormClientes.java`, `ClienteServicioValidacionTest.java`, `PLAN_IMPLEMENTACION.md` | `mvn test`: 16 pruebas, 0 fallos, 0 errores, 0 omitidas; se cubren identificador negativo, nombre numérico, teléfono con letras, longitud telefónica, correo inválido, duplicados, datos válidos y edición | Los registros inválidos creados antes de esta corrección deben editarse o desactivarse manualmente |
+| 2026-09-25 | Integración continua | Se agregó GitHub Actions para compilar y ejecutar las pruebas aisladas únicamente en pull requests desde cualquier rama hacia `development` | `.github/workflows/java-ci.yml`, `README.md`, `PLAN_IMPLEMENTACION.md` | Workflow con JDK 17, caché Maven, permisos de solo lectura y `mvn test`; no utiliza secretos ni ejecuta la integración Oracle | Confirmar la primera ejecución al abrir o actualizar un pull request hacia `development` |
+| 2026-09-25 | Cierre de fase 4 | Se implementaron catálogo de productos y menús, abastecimiento, historial, formularios Swing y transacciones con rollback | DAO y servicios de productos, menús e inventario; `Transaccion.java`; `FormProductos.java`, `FormMenus.java`, `FormInventario.java`, `FormularioAsincrono.java`; pruebas de fase 4; documentación | Suite aislada: 24 pruebas correctas. Integración Oracle: 1 prueba correcta con creación, reconexión y limpieza de datos temporales; `BUILD SUCCESS` | Antes de ventas, resolver la regularización histórica del inventario inicial registrada en fase 1; continuar con fase 5 |
+| 2026-09-25 | Documentación operativa | Se documentaron comandos de compilación, ejecución, pruebas aisladas, empaquetado, JAR, integraciones Oracle y CI; se actualizó la navegación de fases 3 y 4 | `README.md`, `PLAN_IMPLEMENTACION.md` | Comandos contrastados con `pom.xml`, pruebas e integraciones ejecutadas; suite actual de 24 pruebas | Mantener los comandos y conteos actualizados al incorporar nuevas fases |
 
 Para cada próximo avance, agregar una fila indicando qué se completó y cómo se verificó. Si una prueba no se pudo ejecutar, registrar el motivo; no marcar la tarea como verificada.

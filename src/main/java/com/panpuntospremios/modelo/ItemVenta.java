@@ -1,5 +1,7 @@
 package com.panpuntospremios.modelo;
 
+import com.panpuntospremios.excepcion.ValidacionException;
+
 import java.math.BigDecimal;
 
 public abstract class ItemVenta {
@@ -7,6 +9,15 @@ public abstract class ItemVenta {
     private BigDecimal precioUnitario;
 
     public ItemVenta(int cantidad, BigDecimal precioUnitario) {
+        if (cantidad <= 0) {
+            throw new ValidacionException("La cantidad debe ser mayor que cero.");
+        }
+        if (precioUnitario == null) {
+            throw new ValidacionException("El precio unitario es obligatorio.");
+        }
+        if (precioUnitario.signum() < 0) {
+            throw new ValidacionException("El precio unitario no puede ser negativo.");
+        }
         this.cantidad = cantidad;
         this.precioUnitario = precioUnitario;
     }

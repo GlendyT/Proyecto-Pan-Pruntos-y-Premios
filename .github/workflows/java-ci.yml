@@ -1,0 +1,28 @@
+name: Java CI
+
+on:
+  pull_request:
+    branches:
+      - development
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Compilar y ejecutar pruebas
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Descargar repositorio
+        uses: actions/checkout@v6
+
+      - name: Configurar JDK 17 y caché de Maven
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+          cache: maven
+
+      - name: Ejecutar pruebas
+        run: mvn --batch-mode --no-transfer-progress test

@@ -1,5 +1,5 @@
 .env
-.env.example
+
 Proyecto_Pan_Puntos_y_Premios.pdf
 target/
 *.class

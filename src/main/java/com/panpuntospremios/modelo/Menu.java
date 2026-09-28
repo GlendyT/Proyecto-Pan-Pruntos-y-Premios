@@ -32,4 +32,7 @@ public class Menu {
     public void setPrecio(BigDecimal precio) { this.precio = precio; }
     public void setActivo(boolean activo) { this.activo = activo; }
     public void setComponentes(List<Producto> componentes) { this.componentes = componentes; }
+
+    @Override
+    public String toString() { return nombre; }
 }

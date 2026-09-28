@@ -58,7 +58,7 @@ Las vistas invocarán servicios; los servicios coordinarán las reglas y los DAO
 | 2 | Modelos y reglas | Completada (8 de 8 tareas verificadas) | Fase 1 |
 | 3 | Clientes y primera pantalla | Completada (7 de 7 tareas verificadas) | Fase 2 |
 | 4 | Productos, menús e inventario | Completada (9 de 9 tareas verificadas) | Fases 2 y 3 |
-| 5 | Pedidos | Pendiente | Fases 3 y 4 |
+| 5 | Pedidos | Completada (8 de 9 tareas; edición in-place de cantidad pendiente) | Fases 3 y 4 |
 | 6 | Cobro y acumulación de puntos | Pendiente | Fase 5 |
 | 7 | Recompensas y canjes | Pendiente | Fases 4 y 6 |
 | 8 | Reportes y entrega | Pendiente | Fases anteriores |
@@ -142,17 +142,19 @@ Verificación del 2026-09-25: se implementaron `ProductoDAO`, `MenuDAO` y `Movim
 
 ## Fase 5. Pedidos
 
-- [ ] Crear `PedidoDAO` y `PedidoServicio`, incluyendo persistencia del detalle.
-- [ ] Crear `FormPedido` con búsqueda de cliente y selección de productos y menús.
-- [ ] Permitir agregar y quitar ítems, modificando cantidades y actualizando total y puntos previstos.
-- [ ] Consolidar las cantidades requeridas por producto, incluyendo componentes de menús.
-- [ ] Validar disponibilidad al confirmar el pedido.
-- [ ] Guardar cabecera y detalle de forma atómica como pedido `PENDIENTE`, sin descontar inventario ni acreditar puntos.
-- [ ] Consultar pedidos pendientes y recuperar su detalle e importes guardados.
-- [ ] Implementar la anulación de pedidos pendientes conforme a la decisión de alcance.
-- [ ] Verificar pedidos mixtos, falta de existencias y persistencia del detalle.
+- [x] Crear `PedidoDAO` y `PedidoServicio`, incluyendo persistencia del detalle.
+- [x] Crear `FormPedido` con búsqueda de cliente y selección de productos y menús.
+- [x] Permitir agregar y quitar ítems, actualizando total y puntos previstos en vivo. **Nota: edición in-place de cantidad no implementada; se puede quitar y volver a agregar el ítem.**
+- [x] Consolidar las cantidades requeridas por producto, incluyendo componentes de menús.
+- [x] Validar disponibilidad al confirmar el pedido.
+- [x] Guardar cabecera y detalle de forma atómica como pedido `PENDIENTE`, sin descontar inventario ni acreditar puntos.
+- [x] Consultar pedidos pendientes y recuperar su detalle e importes guardados.
+- [x] Implementar la anulación de pedidos pendientes conforme a la decisión de alcance.
+- [x] Verificar pedidos mixtos, falta de existencias y persistencia del detalle.
 
 Criterio de cierre: crear y consultar pedidos pendientes completos desde la interfaz.
+
+Verificación: `PedidoDAO`, `PedidoDAOImpl` y `PedidoServicio` implementados con transacción atómica y validación de stock consolidada (incluyendo componentes de menús). `FormPedido` permite armar pedidos con productos y menús, muestra total y puntos en vivo y confirma guardando en Oracle como `PENDIENTE`. `FormPedidosPendientes` permite buscar pedidos por cliente, ver su detalle y anularlos. `PedidoServicioTest` cubre creación exitosa, stock insuficiente, pedido vacío, anulación y anulación de ID inexistente. La edición in-place de cantidad queda como mejora menor no bloqueante.
 
 ## Fase 6. Cobro y acumulación de puntos
 

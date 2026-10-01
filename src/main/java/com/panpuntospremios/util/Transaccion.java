@@ -14,6 +14,9 @@ public final class Transaccion {
 
     public static <T> T ejecutar(Connection conexion, Operacion<T> operacion) throws SQLException {
         boolean autoCommitOriginal = conexion.getAutoCommit();
+        if (!autoCommitOriginal) {
+            throw new com.panpuntospremios.excepcion.ValidacionException("Ya existe una transacción en curso.");
+        }
         conexion.setAutoCommit(false);
         try {
             T resultado = operacion.ejecutar();

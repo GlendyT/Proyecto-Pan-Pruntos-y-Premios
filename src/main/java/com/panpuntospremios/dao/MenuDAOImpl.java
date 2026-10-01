@@ -74,6 +74,26 @@ public class MenuDAOImpl implements MenuDAO {
             ps.setInt(3, menu.getIdMenu());
             ps.executeUpdate();
         }
+        // El UPDATE anterior bloquea el menú también frente a confirmaciones y cobros.
+        java.util.Set<Integer> actuales = new java.util.HashSet<>();
+        try (PreparedStatement ps = conexion.prepareStatement("SELECT id_producto FROM menu_detalle WHERE id_menu = ?")) {
+            ps.setInt(1, menu.getIdMenu());
+            try (ResultSet rs = ps.executeQuery()) { while (rs.next()) actuales.add(rs.getInt(1)); }
+        }
+        java.util.Set<Integer> nuevos = menu.getComponentes().stream().map(Producto::getIdProducto)
+            .collect(java.util.stream.Collectors.toSet());
+        if (!actuales.equals(nuevos)) {
+            try (PreparedStatement ps = conexion.prepareStatement("""
+                SELECT d.id_pedido FROM pedido_detalle d JOIN pedido p ON p.id_pedido = d.id_pedido
+                 WHERE d.id_menu = ? AND p.estado = 'PENDIENTE'
+                """)) {
+                ps.setInt(1, menu.getIdMenu());
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) throw new com.panpuntospremios.excepcion.ValidacionException(
+                        "No se pueden cambiar los componentes de un menú con pedidos pendientes. Cobra o anula esos pedidos primero.");
+                }
+            }
+        }
         try (PreparedStatement ps = conexion.prepareStatement(
             "DELETE FROM menu_detalle WHERE id_menu = ?"
         )) {

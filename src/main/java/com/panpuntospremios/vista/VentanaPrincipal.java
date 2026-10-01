@@ -37,6 +37,9 @@ public class VentanaPrincipal extends JFrame {
         itemPendientes.addActionListener(e -> new FormPedidosPendientes().setVisible(true));
         menuPedidos.add(itemPedidos);
         menuPedidos.add(itemPendientes);
+        JMenuItem itemCobro = new JMenuItem("Cobro y comprobantes");
+        itemCobro.addActionListener(e -> new FormCobro().setVisible(true));
+        menuPedidos.add(itemCobro);
 
         menuBar.add(menuClientes);
         menuBar.add(menuCatalogo);

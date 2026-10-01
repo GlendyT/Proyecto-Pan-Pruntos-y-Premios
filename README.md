@@ -70,6 +70,20 @@ Se abrirá la ventana principal de Swing. La navegación disponible es:
 - **Catálogo e inventario → Gestionar productos**.
 - **Catálogo e inventario → Gestionar menús**.
 - **Catálogo e inventario → Inventario y abastecimiento**.
+- **Pedidos → Nuevo pedido**.
+- **Pedidos → Pedidos pendientes**.
+- **Pedidos → Cobro y comprobantes**.
+
+### Pedidos y cobro
+
+1. En **Nuevo pedido**, busca un cliente activo por identificador, agrega productos o menús y confirma. Para editar una cantidad, selecciona la fila, cambia el selector de cantidad y pulsa **Cambiar cantidad**. El pedido queda pendiente sin consumir inventario ni acreditar puntos.
+2. En **Pedidos pendientes**, busca al cliente y selecciona un pedido para ver su detalle, anularlo o abrir el cobro. Usa **Buscar cliente** para actualizar la lista después de cobrar en otra ventana.
+3. En **Cobro y comprobantes**, consulta el ID del pedido. Selecciona efectivo e introduce el importe recibido con punto decimal, o tarjeta y el resultado **Aprobada/Rechazada** del simulador. Pulsa **Cobrar**.
+4. El cobro exitoso descuenta productos y componentes de menús, registra movimientos, acredita puntos y marca `PAGADO` en una transacción. El comprobante muestra los importes guardados y el cambio en efectivo. Puedes recuperarlo consultando el ID nuevamente y usar **Marcar entregado** cuando corresponda.
+
+Los precios y puntos de un pedido confirmado se conservan aunque cambie el precio del catálogo. Los componentes de un menú no se pueden editar mientras tenga pedidos pendientes: primero deben cobrarse o anularse. Al confirmar y cobrar se vuelven a validar actividad y existencias; un pedido pendiente no reserva stock.
+
+La tarjeta es una simulación y no solicita datos bancarios. El esquema no requiere migraciones: `referencia_pago` guarda el importe recibido para efectivo o una referencia `SIM-` para tarjeta. El comprobante identifica los ítems por sus IDs y muestra la fecha del pedido. Las pruebas automatizadas usan H2; además, se verificó en Oracle el flujo de cobro, su persistencia tras reconectar, el rechazo y la falta de stock sin cambios parciales. La regularización del inventario histórico inicial sigue registrada en la fase 1 del plan.
 
 ### Comandos de desarrollo y verificación
 
@@ -81,7 +95,7 @@ Se abrirá la ventana principal de Swing. La navegación disponible es:
 | Generar el JAR ejecutable y ejecutar pruebas | `mvn package` | No |
 | Ejecutar el JAR generado | `java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar` | La ventana principal no; los formularios con datos sí |
 
-La suite normal utiliza H2 en memoria para probar persistencia y transacciones sin modificar Oracle. El resultado verificado actualmente es de 24 pruebas sin fallos:
+La suite normal utiliza H2 en memoria para probar persistencia y transacciones sin modificar Oracle. El resultado verificado actualmente es de 56 pruebas sin fallos, incluyendo rollback y cobros concurrentes con conexiones independientes:
 
 ```bash
 mvn --batch-mode --no-transfer-progress test

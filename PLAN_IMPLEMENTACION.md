@@ -2,9 +2,9 @@
 
 Fecha de creación: 2026-09-20.
 
-Estado general: fases 2, 3 y 4 completadas; fase 1 en curso; fases 5 a 8 pendientes. Auditoría del repositorio actualizada el 2026-09-25.
+Estado general: fases 2 a 6 completadas; fase 1 en curso; fases 7 y 8 pendientes. Fase 6 verificada en pruebas aisladas y contra Oracle el 2026-09-30.
 
-Este documento registra el alcance previsto, los avances, las verificaciones y las decisiones pendientes. Las marcas reflejan los archivos presentes y las verificaciones disponibles en el repositorio al 2026-09-25.
+Este documento registra el alcance previsto, los avances, las verificaciones y las decisiones pendientes. Las marcas reflejan los archivos presentes y las verificaciones disponibles en el repositorio al 2026-09-30.
 
 ## Cómo llevar el seguimiento
 
@@ -27,7 +27,7 @@ El `Main.java` actual inicia `VentanaPrincipal` en el hilo de eventos de Swing. 
 
 El esquema local define 10 tablas: `cliente`, `producto`, `menu`, `menu_detalle`, `pedido`, `pedido_detalle`, `movimiento_inventario`, `movimiento_puntos`, `recompensa` y `canje`. El usuario confirmó que las tablas y columnas ya existen en Oracle. Los resultados aportados en `result.json` fueron revisados y concuerdan con el DDL en tablas, columnas, restricciones, valores predeterminados e identidades.
 
-El proyecto ya contiene modelos, enums, excepciones, DAO y servicios para clientes, productos, menús e inventario, además de sus formularios Java Swing. La suite aislada actual contiene 24 pruebas automatizadas; las funciones o procedimientos almacenados siguen sin estar definidos en el SQL revisado.
+El proyecto ya contiene modelos, enums, excepciones, DAO y servicios para clientes, productos, menús e inventario, además de sus formularios Java Swing. La suite aislada actual contiene 56 pruebas automatizadas; las funciones o procedimientos almacenados siguen sin estar definidos en el SQL revisado.
 
 El PDF del enunciado mencionado en el README no está disponible en la ruta del proyecto. Queda pendiente confirmar los reportes obligatorios y cualquier exigencia específica de PL/SQL.
 
@@ -58,8 +58,8 @@ Las vistas invocarán servicios; los servicios coordinarán las reglas y los DAO
 | 2 | Modelos y reglas | Completada (8 de 8 tareas verificadas) | Fase 1 |
 | 3 | Clientes y primera pantalla | Completada (7 de 7 tareas verificadas) | Fase 2 |
 | 4 | Productos, menús e inventario | Completada (9 de 9 tareas verificadas) | Fases 2 y 3 |
-| 5 | Pedidos | Completada (8 de 9 tareas; edición in-place de cantidad pendiente) | Fases 3 y 4 |
-| 6 | Cobro y acumulación de puntos | Pendiente | Fase 5 |
+| 5 | Pedidos | Completada (9 de 9; verificación aislada) | Fases 3 y 4 |
+| 6 | Cobro y acumulación de puntos | Completada (11 de 11 tareas verificadas) | Fase 5 |
 | 7 | Recompensas y canjes | Pendiente | Fases 4 y 6 |
 | 8 | Reportes y entrega | Pendiente | Fases anteriores |
 
@@ -144,7 +144,7 @@ Verificación del 2026-09-25: se implementaron `ProductoDAO`, `MenuDAO` y `Movim
 
 - [x] Crear `PedidoDAO` y `PedidoServicio`, incluyendo persistencia del detalle.
 - [x] Crear `FormPedido` con búsqueda de cliente y selección de productos y menús.
-- [x] Permitir agregar y quitar ítems, actualizando total y puntos previstos en vivo. **Nota: edición in-place de cantidad no implementada; se puede quitar y volver a agregar el ítem.**
+- [x] Permitir agregar, quitar ítems y cambiar cantidades, actualizando total y puntos previstos en vivo.
 - [x] Consolidar las cantidades requeridas por producto, incluyendo componentes de menús.
 - [x] Validar disponibilidad al confirmar el pedido.
 - [x] Guardar cabecera y detalle de forma atómica como pedido `PENDIENTE`, sin descontar inventario ni acreditar puntos.
@@ -154,22 +154,39 @@ Verificación del 2026-09-25: se implementaron `ProductoDAO`, `MenuDAO` y `Movim
 
 Criterio de cierre: crear y consultar pedidos pendientes completos desde la interfaz.
 
-Verificación: `PedidoDAO`, `PedidoDAOImpl` y `PedidoServicio` implementados con transacción atómica y validación de stock consolidada (incluyendo componentes de menús). `FormPedido` permite armar pedidos con productos y menús, muestra total y puntos en vivo y confirma guardando en Oracle como `PENDIENTE`. `FormPedidosPendientes` permite buscar pedidos por cliente, ver su detalle y anularlos. `PedidoServicioTest` cubre creación exitosa, stock insuficiente, pedido vacío, anulación y anulación de ID inexistente. La edición in-place de cantidad queda como mejora menor no bloqueante.
+Correcciones del 2026-09-30: el servicio recalcula importes y puntos desde los ítems revalidados; consulta cliente, productos y menús vigentes; rechaza precios modificados desde la carga del catálogo. Bloquea cliente, menús y productos (estos últimos por ID creciente), consolida existencias y revierte errores SQL y de ejecución. Rechaza transacciones externas para evitar confirmar trabajo ajeno. La anulación bloquea la misma fila que el cobro. Los formularios usan `SwingWorker` y conexiones por operación con `try-with-resources`, cierran recursos incluso si se cierra la ventana y actualizan Swing en el hilo de eventos. Se incorporó el botón **Cambiar cantidad**.
+
+Verificación: las cinco pruebas originales de pedidos y las once de `PedidoFlujoTest` pasan. Se cubren pedido mixto, conservación del inventario y saldo, recuperación tras cerrar y reabrir conexión, totales recalculados, stock compartido entre menú y producto, catálogo desactualizado, estados inválidos y rollback tras insertar cabecera y detalles. Las pruebas nuevas ejecutan `sql/ddl.sql` exclusivamente en H2. Los formularios se compilaron y revisaron; no se realizó una sesión visual ni se ejecutaron estas operaciones contra Oracle compartido.
 
 ## Fase 6. Cobro y acumulación de puntos
 
-- [ ] Crear `VentaServicio` y `FormCobro`.
-- [ ] Implementar efectivo con validación de importe recibido y cálculo de cambio.
-- [ ] Implementar tarjeta con aprobación o rechazo simulado.
-- [ ] Revalidar estado del pedido y existencias al cobrar.
-- [ ] Descontar inventario de productos y componentes de menús.
-- [ ] Registrar movimientos de inventario y puntos, actualizar saldo y marcar el pedido `PAGADO` en una sola transacción.
-- [ ] Evitar cobros duplicados y proteger existencias y saldos frente a operaciones concurrentes.
-- [ ] Implementar comprobante con los datos persistidos de la venta.
-- [ ] Incorporar la transición de `PAGADO` a `ENTREGADO` si se mantiene ese estado en el flujo final.
-- [ ] Probar pago rechazado, falta de stock, cobro repetido y rollback ante fallos.
+- [x] Crear `VentaServicio` y `FormCobro`.
+- [x] Implementar efectivo con validación de importe recibido y cálculo de cambio.
+- [x] Implementar tarjeta con aprobación o rechazo simulado.
+- [x] Revalidar estado del pedido y existencias al cobrar.
+- [x] Descontar inventario de productos y componentes de menús.
+- [x] Registrar movimientos de inventario y puntos, actualizar saldo y marcar el pedido `PAGADO` en una sola transacción.
+- [x] Evitar cobros duplicados y proteger existencias y saldos frente a operaciones concurrentes.
+- [x] Implementar comprobante con los datos persistidos de la venta.
+- [x] Incorporar la transición de `PAGADO` a `ENTREGADO`.
+- [x] Probar pago rechazado, falta de stock, cobro repetido y rollback ante fallos.
+- [x] Abrir los formularios de pedidos, cobro y comprobante, y confirmar que cargan datos de Oracle. **Confirmado por el usuario el 2026-09-30.**
+- [x] Completar un cobro de prueba en Oracle y comprobar tras reconectar estado, método/referencia, existencias, movimientos de inventario, saldo y movimiento de puntos; consultar el comprobante persistido. Verificar también rechazo simulado y stock insuficiente sin cambios parciales. **Confirmado por el usuario el 2026-09-30.**
 
 Criterio de cierre: venta completa y atómica, con inventario, puntos, pago y comprobante coherentes.
+
+Implementación del 2026-09-30: `VentaDAO` concentra bloqueos y escrituras de pago y puntos; `VentaServicio` coordina la transacción y `ComprobanteVenta` presenta el pedido y detalle guardados. `FormCobro` se abre desde **Pedidos → Cobro y comprobantes** o desde un pedido pendiente. Permite consultar por ID, cobrar, recuperar el comprobante y marcar entregado; utiliza JDBC en segundo plano y cierre por operación.
+
+Decisiones de implementación:
+
+- Se conservan los precios y puntos guardados al confirmar el pedido; no se recalculan con precios actuales al cobrar. Se valida su coherencia con el detalle.
+- El esquema existente se conserva. `referencia_pago` almacena `RECIBIDO:<importe>` para efectivo (el cambio se deriva del total persistido) o `SIM-<UUID>` para tarjeta simulada. No se solicitan ni guardan datos de tarjeta. El comprobante identifica cliente e ítems por sus IDs guardados y muestra la fecha del pedido, pues el esquema no tiene fecha de pago separada.
+- Los movimientos de inventario registran cantidades positivas de salida con tipo `VENTA` y existencia resultante; los de puntos usan `ACUMULACION` y referencia `PEDIDO:<id>`.
+- Un menú con pedidos pendientes no puede cambiar sus componentes desde el servicio de catálogo. Puede cambiar nombre/precio, que no altera los importes del pedido. Se permite cambiar componentes después de cobrar o anular los pendientes. La confirmación y el cobro bloquean el menú para coordinarse con su edición.
+- La entrega solo admite `PAGADO → ENTREGADO` y no vuelve a mover inventario ni puntos. La anulación solo admite pedidos pendientes.
+- El saldo y las existencias actuales son el punto de partida. La regularización histórica del inventario inicial continúa pendiente en fase 1; no se inventaron movimientos históricos ni se modificó Oracle.
+
+Verificación: `VentaServicioTest` aporta 16 pruebas de efectivo exacto/con cambio/inválido, tarjeta aprobada/rechazada, stock insuficiente después de descontar otro producto, rollback por fallo en puntos o estado final, desbordamiento del saldo, cobro repetido, entrega y comprobante persistido. Las pruebas con dos conexiones/hilos cubren doble cobro, competencia por stock entre clientes, acumulación simultánea del mismo cliente y anulación frente a cobro. Suite automatizada: 56 pruebas, 0 fallos, 0 errores, 0 omitidas. El usuario confirmó que los formularios abren y cargan datos de Oracle, y posteriormente confirmó que completó y verificó el flujo de cobro, incluido el rechazo y la falta de stock sin cambios parciales, y la persistencia del pago, inventario, puntos y comprobante tras reconectar. Fase 6 completada.
 
 ## Fase 7. Recompensas y canjes
 
@@ -243,7 +260,7 @@ Opción 2 — generar el JAR y correrlo:
 mvn package && java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar
 ```
 
-Ambas opciones abren la ventana principal de escritorio. Los módulos implementados se encuentran en **Clientes → Gestionar clientes** y en las tres opciones de **Catálogo e inventario**.
+Ambas opciones abren la ventana principal de escritorio. Los módulos implementados se encuentran en **Clientes**, **Catálogo e inventario** y **Pedidos** (nuevo pedido, pendientes, cobro y comprobantes).
 
 `mvn exec:java` por sí solo ejecuta las clases que ya existan en `target/classes`, pero no garantiza que el código fuente se compile antes. Por ello, después de clonar el repositorio o modificar archivos Java se debe usar `mvn compile exec:java`. Una vez compilada la versión actual, `mvn exec:java` puede utilizarse para volver a ejecutarla sin recompilar. La opción con `mvn package` crea además el JAR ejecutable con sus dependencias.
 
@@ -267,7 +284,7 @@ Compilar sin ejecutar la aplicación:
 mvn compile
 ```
 
-Ejecutar las 24 pruebas aisladas, sin wallet ni conexión a Oracle:
+Ejecutar las 56 pruebas aisladas, sin wallet ni conexión a Oracle:
 
 ```bash
 mvn test
@@ -308,17 +325,20 @@ Ambas integraciones usan datos temporales únicos y ejecutan su limpieza al fina
 | Lógica de negocio | Servicios Java y DAO JDBC; no duplicar reglas entre capas | Implementada y probada para fases 2 a 4 |
 | PL/SQL | Confirmar si el enunciado exige funciones o procedimientos almacenados | Pendiente |
 | Reportes | Confirmar la sección de reportes del PDF original | Pendiente |
-| Anulaciones | Permitir inicialmente anular pedidos pendientes; definir aparte devoluciones de ventas pagadas y reversión de puntos/inventario | Pendiente de confirmar |
-| Entrega de pedidos | Definir el uso del estado `ENTREGADO` en la interfaz | Pendiente de confirmar |
+| Anulaciones | Solo pedidos pendientes; devoluciones de ventas pagadas fuera de este alcance | Implementada con bloqueo frente a cobros |
+| Entrega de pedidos | Botón Marcar entregado en cobro y comprobantes; solo desde PAGADO | Implementada y probada en H2 |
 | Menús | Un componente de cada categoría; el esquema actual no garantiza por sí solo esta composición | Validado en `MenuServicio`; fase 4 completada |
 | Inventario inicial | Datos de ejemplo con stock, pero sin movimientos de abastecimiento | Resolver en fase 1 |
-| Cobro con tarjeta | Simulado, según el documento de diseño | Incluido en el plan; pendiente de aprobación |
+| Cobro con tarjeta | Aprobación o rechazo seleccionable; referencia SIM, sin datos de tarjeta | Implementado y probado en H2 |
 | Android/API | El diseño lo marca como extra; no forma parte de estas ocho fases | Opcional, fuera del alcance inicial |
 
 ## Bitácora de auditoría
 
 | Fecha | Fase / actividad | Trabajo realizado | Archivos afectados | Verificación / evidencia | Pendientes |
 |---|---|---|---|---|---|
+| 2026-09-30 | Cierre de fase 6 | Se registró el resultado de la validación del flujo completo de cobro en Oracle realizada por el usuario | `PLAN_IMPLEMENTACION.md`, `README.md` | El usuario confirmó cobro y comprobante persistidos tras reconectar, junto con estado, inventario y puntos; confirmó además rechazo y stock insuficiente sin cambios parciales. Suite aislada previa: 56 pruebas correctas | Fase 1 y fases 7–8 siguen pendientes |
+| 2026-09-30 | Corrección de fase 5 e implementación de fase 6 | Integridad de fase 5; formularios asíncronos; cobro atómico, comprobantes, entrega y protección concurrente | Servicios y DAO de pedidos/ventas/menús; formularios; modelo de comprobante; pruebas; README y plan | Suite final: 56 pruebas correctas; Maven package genera el JAR. Pruebas aisladas con el DDL en H2, reconexión y dos conexiones concurrentes | Usuario confirmó apertura y carga de datos de las pantallas en Oracle. Pendiente cobro controlado y comprobar todos sus efectos tras reconectar; regularización histórica del inventario inicial permanece en fase 1 |
+| 2026-09-30 | Auditoría de fase 5 | Revisión de servicio, DAO, formularios, navegación y cobertura; se corrigió el cierre prematuro de la fase | `PLAN_IMPLEMENTACION.md` | `mvn --batch-mode --no-transfer-progress test`: 29 pruebas, 0 fallos, 0 errores, 0 omitidas; cinco pruebas de pedidos. Hallazgos funcionales obtenidos por revisión estática; sin escrituras en Oracle | Corregir atomicidad y coherencia cabecera/detalle, completar pruebas de pedidos mixtos y rollback, resolver concurrencia de anulación y ciclo de vida de formularios antes de fase 6 |
 | 2026-09-20 | Revisión inicial | Inspección del código, SQL, Maven y documentación; propuesta de ocho fases | Sin cambios durante la revisión | Dos clases Java existentes; diez tablas definidas en el DDL; módulos todavía documentados como ejemplos | Aprobar inicio y verificar esquema real |
 | 2026-09-20 | Documentación del plan | Creación de este documento a solicitud del usuario | `PLAN_IMPLEMENTACION.md` | Plan con tareas, criterios de cierre, decisiones y bitácora | Implementación pendiente de aprobación |
 | 2026-09-20 | Fase 1, puntos 1 y 2 | Inicio autorizado; usuario confirma tablas y columnas existentes; creación del script de verificación de solo lectura | `sql/verificar_esquema.sql`, `PLAN_IMPLEMENTACION.md` | Revisión estática de cobertura contra DDL: 10 tablas, 63 columnas, 34 restricciones con nombre; inventarios para revisión manual | Ejecutar consultas en Oracle y registrar diferencias o conformidad; no se modificó la base |

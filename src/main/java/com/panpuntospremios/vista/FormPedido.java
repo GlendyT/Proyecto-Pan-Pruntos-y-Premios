@@ -5,7 +5,6 @@ import com.panpuntospremios.modelo.*;
 import com.panpuntospremios.modelo.Menu;
 import com.panpuntospremios.servicio.*;
 import com.panpuntospremios.util.ConexionOracle;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
@@ -14,182 +13,121 @@ import java.sql.Connection;
 import java.util.ArrayList;
 import java.util.List;
 
-public class FormPedido extends JFrame {
-
-    private final DefaultTableModel modeloItems;
+public class FormPedido extends FormularioAsincrono {
     private final List<ItemVenta> items = new ArrayList<>();
-    private final JLabel lblTotal = new JLabel("Total: Q0.00");
-    private final JLabel lblPuntos = new JLabel("Puntos: 0");
-    private final JLabel lblCliente = new JLabel("Sin cliente seleccionado");
-    private Cliente clienteSeleccionado;
-    private Connection conexion;
-    private ClienteServicio clienteServicio;
-    private ProductoServicio productoServicio;
-    private MenuServicio menuServicio;
-    private PedidoServicio pedidoServicio;
+    private final JTextField identificador = new JTextField(12);
+    private final JLabel clienteTexto = new JLabel("Sin cliente seleccionado");
+    private final JComboBox<Object> catalogo = new JComboBox<>();
+    private final JSpinner cantidad = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
+    private final JLabel total = new JLabel("Total: Q0.00 | Puntos: 0");
+    private final DefaultTableModel modelo = new DefaultTableModel(
+        new Object[]{"Nombre", "Cantidad", "Precio", "Subtotal", "Puntos"}, 0) {
+        public boolean isCellEditable(int fila, int columna) { return false; }
+    };
+    private final JTable tabla = new JTable(modelo);
+    private Cliente cliente;
 
     public FormPedido() {
-        setTitle("Nuevo Pedido");
-        setSize(900, 600);
-        setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-
-        try {
-            conexion = ConexionOracle.obtener();
-            clienteServicio = new ClienteServicio(new ClienteDAOImpl(conexion));
-            productoServicio = new ProductoServicio(new ProductoDAOImpl(conexion));
-            menuServicio = new MenuServicio(conexion, new MenuDAOImpl(conexion));
-            pedidoServicio = new PedidoServicio(new PedidoDAOImpl(conexion), new ProductoDAOImpl(conexion), conexion);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error al conectar con la base de datos.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-
-        // Panel cliente
-        JPanel panelCliente = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JTextField txtBuscarCliente = new JTextField(15);
-        JButton btnBuscarCliente = new JButton("Buscar cliente");
-        panelCliente.add(new JLabel("Identificador:"));
-        panelCliente.add(txtBuscarCliente);
-        panelCliente.add(btnBuscarCliente);
-        panelCliente.add(lblCliente);
-
-        // Panel catálogo
-        JPanel panelCatalogo = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JComboBox<String> cmbTipo = new JComboBox<>(new String[]{"PRODUCTO", "MENU"});
-        JComboBox<Object> cmbItem = new JComboBox<>();
-        JSpinner spnCantidad = new JSpinner(new SpinnerNumberModel(1, 1, 999, 1));
-        JButton btnAgregar = new JButton("Agregar ítem");
-        panelCatalogo.add(new JLabel("Tipo:"));
-        panelCatalogo.add(cmbTipo);
-        panelCatalogo.add(new JLabel("Ítem:"));
-        panelCatalogo.add(cmbItem);
-        panelCatalogo.add(new JLabel("Cantidad:"));
-        panelCatalogo.add(spnCantidad);
-        panelCatalogo.add(btnAgregar);
-
-        // Tabla de ítems
-        modeloItems = new DefaultTableModel(new Object[]{"Tipo", "Nombre", "Cantidad", "Precio unitario", "Subtotal", "Puntos"}, 0) {
-            public boolean isCellEditable(int row, int col) { return false; }
-        };
-        JTable tablaItems = new JTable(modeloItems);
-        tablaItems.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
-        // Panel totales y botones
-        JPanel panelSur = new JPanel(new BorderLayout());
-        JPanel panelTotales = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        lblTotal.setFont(new Font("Arial", Font.BOLD, 14));
-        lblPuntos.setFont(new Font("Arial", Font.BOLD, 14));
-        panelTotales.add(lblTotal);
-        panelTotales.add(Box.createHorizontalStrut(20));
-        panelTotales.add(lblPuntos);
-
-        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton btnEliminar = new JButton("Eliminar ítem");
-        JButton btnConfirmar = new JButton("Confirmar pedido");
-        panelBotones.add(btnEliminar);
-        panelBotones.add(btnConfirmar);
-
-        panelSur.add(panelTotales, BorderLayout.WEST);
-        panelSur.add(panelBotones, BorderLayout.EAST);
-
-        // Layout principal
-        JPanel panelNorte = new JPanel(new GridLayout(2, 1));
-        panelNorte.add(panelCliente);
-        panelNorte.add(panelCatalogo);
-
-        setLayout(new BorderLayout());
-        add(panelNorte, BorderLayout.NORTH);
-        add(new JScrollPane(tablaItems), BorderLayout.CENTER);
-        add(panelSur, BorderLayout.SOUTH);
-
-        // Acciones
-        btnBuscarCliente.addActionListener(e -> buscarCliente(txtBuscarCliente.getText().trim()));
-        cmbTipo.addActionListener(e -> cargarCatalogo(cmbTipo, cmbItem));
-        btnAgregar.addActionListener(e -> agregarItem(cmbTipo, cmbItem, (int) spnCantidad.getValue()));
-        btnEliminar.addActionListener(e -> eliminarItem(tablaItems.getSelectedRow()));
-        btnConfirmar.addActionListener(e -> confirmarPedido());
-
-        cargarCatalogo(cmbTipo, cmbItem);
-    }
-
-    private void buscarCliente(String identificador) {
-        if (identificador.isBlank()) return;
-        try {
-            clienteSeleccionado = clienteServicio.buscarPorIdentificador(identificador);
-            if (clienteSeleccionado != null) {
-                lblCliente.setText(clienteSeleccionado.getNombre() + " | Puntos: " + clienteSeleccionado.getSaldoPuntos());
-            } else {
-                JOptionPane.showMessageDialog(this, "No se encontró el cliente.", "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
-            }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error al buscar cliente: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void cargarCatalogo(JComboBox<String> cmbTipo, JComboBox<Object> cmbItem) {
-        cmbItem.removeAllItems();
-        try {
-            if ("PRODUCTO".equals(cmbTipo.getSelectedItem())) {
-                for (Producto p : productoServicio.listarActivos()) cmbItem.addItem(p);
-            } else {
-                for (Menu m : menuServicio.listarActivos()) cmbItem.addItem(m);
-            }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error al cargar catálogo: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
-    }
-
-    private void agregarItem(JComboBox<String> cmbTipo, JComboBox<Object> cmbItem, int cantidad) {
-        if (cmbItem.getSelectedItem() == null) return;
-        ItemVenta item;
-        String nombre;
-        if ("PRODUCTO".equals(cmbTipo.getSelectedItem())) {
-            Producto p = (Producto) cmbItem.getSelectedItem();
-            item = new ProductoIndividual(p, cantidad);
-            nombre = p.getNombre();
-        } else {
-            Menu m = (Menu) cmbItem.getSelectedItem();
-            item = new MenuCompleto(m, cantidad);
-            nombre = m.getNombre();
-        }
-        items.add(item);
-        modeloItems.addRow(new Object[]{
-            cmbTipo.getSelectedItem(), nombre, cantidad,
-            item.getPrecioUnitario(), item.calcularSubtotal(), item.calcularPuntos()
+        setTitle("Nuevo pedido"); setSize(950, 550); setLocationRelativeTo(null);
+        JPanel norte = new JPanel(new GridLayout(2, 1));
+        JPanel clientePanel = new JPanel();
+        JButton buscar = new JButton("Buscar cliente");
+        clientePanel.add(new JLabel("Identificador:")); clientePanel.add(identificador);
+        clientePanel.add(buscar); clientePanel.add(clienteTexto); norte.add(clientePanel);
+        JPanel seleccion = new JPanel();
+        JButton cargar = new JButton("Actualizar catálogo");
+        JButton agregar = new JButton("Agregar");
+        seleccion.add(catalogo); seleccion.add(cantidad); seleccion.add(agregar); seleccion.add(cargar);
+        norte.add(seleccion); add(norte, BorderLayout.NORTH);
+        tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        add(new JScrollPane(tabla), BorderLayout.CENTER);
+        JPanel sur = new JPanel();
+        JButton editar = new JButton("Cambiar cantidad");
+        JButton quitar = new JButton("Quitar");
+        JButton confirmar = new JButton("Confirmar pedido");
+        sur.add(total); sur.add(editar); sur.add(quitar); sur.add(confirmar); add(sur, BorderLayout.SOUTH);
+        buscar.addActionListener(e -> buscarCliente());
+        cargar.addActionListener(e -> cargarCatalogo());
+        agregar.addActionListener(e -> {
+            Object seleccionado = catalogo.getSelectedItem();
+            if (seleccionado == null) return;
+            if (!confirmarCantidad()) return;
+            items.add(crearItem(seleccionado, (Integer)cantidad.getValue())); actualizar();
         });
-        actualizarTotales();
+        quitar.addActionListener(e -> { int fila = tabla.getSelectedRow(); if (fila >= 0) { items.remove(fila); actualizar(); } });
+        editar.addActionListener(e -> {
+            int fila = tabla.getSelectedRow();
+            if (fila < 0 || !confirmarCantidad()) return;
+            ItemVenta anterior = items.get(fila);
+            Object producto = anterior instanceof ProductoIndividual pi ? pi.getProducto() : ((MenuCompleto)anterior).getMenu();
+            items.set(fila, crearItem(producto, (Integer)cantidad.getValue())); actualizar();
+        });
+        confirmar.addActionListener(e -> confirmar());
+        cargarCatalogo();
     }
 
-    private void eliminarItem(int fila) {
-        if (fila < 0) { JOptionPane.showMessageDialog(this, "Selecciona un ítem de la tabla."); return; }
-        items.remove(fila);
-        modeloItems.removeRow(fila);
-        actualizarTotales();
+    private boolean confirmarCantidad() {
+        try { cantidad.commitEdit(); return true; }
+        catch (java.text.ParseException e) { JOptionPane.showMessageDialog(this, "Cantidad inválida."); return false; }
     }
 
-    private void actualizarTotales() {
-        BigDecimal total = items.stream().map(ItemVenta::calcularSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-        int puntos = items.stream().mapToInt(ItemVenta::calcularPuntos).sum();
-        lblTotal.setText("Total: Q" + total);
-        lblPuntos.setText("Puntos: " + puntos);
+    private ItemVenta crearItem(Object objeto, int unidades) {
+        return objeto instanceof Producto p ? new ProductoIndividual(p, unidades) : new MenuCompleto((Menu)objeto, unidades);
     }
 
-    private void confirmarPedido() {
-        if (clienteSeleccionado == null) { JOptionPane.showMessageDialog(this, "Selecciona un cliente primero."); return; }
-        if (items.isEmpty()) { JOptionPane.showMessageDialog(this, "Agrega al menos un ítem al pedido."); return; }
+    private void buscarCliente() {
+        String texto = identificador.getText().trim();
+        cliente = null; clienteTexto.setText("Sin cliente seleccionado");
+        ejecutar(() -> {
+            try (Connection c = ConexionOracle.obtener()) { return new ClienteDAOImpl(c).buscarPorIdentificador(texto); }
+        }, encontrado -> {
+            if (encontrado == null || !encontrado.isActivo()) {
+                JOptionPane.showMessageDialog(this, "No se encontró un cliente activo."); return;
+            }
+            cliente = encontrado; clienteTexto.setText(cliente.getNombre());
+        }, "No se pudo buscar el cliente.");
+    }
 
-        BigDecimal total = items.stream().map(ItemVenta::calcularSubtotal).reduce(BigDecimal.ZERO, BigDecimal::add);
-        int puntos = items.stream().mapToInt(ItemVenta::calcularPuntos).sum();
+    private void cargarCatalogo() {
+        ejecutar(() -> {
+            try (Connection c = ConexionOracle.obtener()) {
+                List<Object> resultado = new ArrayList<>(new ProductoDAOImpl(c).listarActivos());
+                resultado.addAll(new MenuDAOImpl(c).listarActivos()); return resultado;
+            }
+        }, resultado -> { catalogo.removeAllItems(); resultado.forEach(catalogo::addItem); }, "No se pudo cargar el catálogo.");
+    }
 
-        Pedido pedido = new Pedido(0, clienteSeleccionado.getIdCliente(), null, "PENDIENTE", total, puntos, null, null);
-        try {
-            int idPedido = pedidoServicio.crearPedido(pedido, items);
-            JOptionPane.showMessageDialog(this, "Pedido #" + idPedido + " creado correctamente.\nTotal: Q" + total + " | Puntos: " + puntos);
+    private void actualizar() {
+        modelo.setRowCount(0); BigDecimal importe = BigDecimal.ZERO; int puntos = 0;
+        for (ItemVenta item : items) {
+            String nombre = item instanceof ProductoIndividual pi ? pi.getProducto().getNombre() : ((MenuCompleto)item).getMenu().getNombre();
+            modelo.addRow(new Object[]{nombre, item.getCantidad(), item.getPrecioUnitario(), item.calcularSubtotal(), item.calcularPuntos()});
+            importe = importe.add(item.calcularSubtotal()); puntos += item.calcularPuntos();
+        }
+        total.setText("Total: Q" + importe + " | Puntos: " + puntos);
+    }
+
+    private void confirmar() {
+        if (cliente == null || items.isEmpty()) {
+            JOptionPane.showMessageDialog(this, "Selecciona un cliente y agrega al menos un ítem."); return;
+        }
+        Pedido pedido = new Pedido(0, cliente.getIdCliente(), null, "PENDIENTE", BigDecimal.ZERO, 0, null, null);
+        List<ItemVenta> copia = List.copyOf(items);
+        ejecutar(() -> {
+            try (Connection c = ConexionOracle.obtener()) {
+                return new PedidoServicio(new PedidoDAOImpl(c), new ProductoDAOImpl(c), c).crearPedido(pedido, copia);
+            }
+        }, id -> {
+            JOptionPane.showMessageDialog(this, "Pedido #" + id + " creado. Total: Q" + pedido.getTotal() + " | Puntos previstos: " + pedido.getPuntosGenerados());
             dispose();
-        } catch (com.panpuntospremios.excepcion.StockInsuficienteException e) {
-            JOptionPane.showMessageDialog(this, e.getMessage(), "Stock insuficiente", JOptionPane.WARNING_MESSAGE);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error al crear pedido: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
+        }, "No se pudo crear el pedido.");
+    }
+
+    @Override protected void habilitarControles(boolean habilitar) { habilitar(getContentPane(), habilitar); }
+    static void habilitar(Container contenedor, boolean habilitar) {
+        for (Component componente : contenedor.getComponents()) {
+            componente.setEnabled(habilitar);
+            if (componente instanceof Container hijo) habilitar(hijo, habilitar);
         }
     }
 }

@@ -11,7 +11,7 @@ public class ProductoIndividual extends ItemVenta {
     @Override
     public int calcularPuntos() {
         if ("SANDWICH".equals(producto.getCategoria())) {
-            return getCantidad() * 2;
+            return Math.multiplyExact(getCantidad(), 2);
         }
         return 0;
     }

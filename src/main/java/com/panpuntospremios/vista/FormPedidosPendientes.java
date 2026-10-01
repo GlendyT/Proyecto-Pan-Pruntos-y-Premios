@@ -2,136 +2,85 @@ package com.panpuntospremios.vista;
 
 import com.panpuntospremios.dao.*;
 import com.panpuntospremios.modelo.*;
-import com.panpuntospremios.servicio.*;
+import com.panpuntospremios.servicio.PedidoServicio;
 import com.panpuntospremios.util.ConexionOracle;
-
 import javax.swing.*;
 import javax.swing.table.DefaultTableModel;
 import java.awt.*;
 import java.sql.Connection;
 import java.util.List;
 
-public class FormPedidosPendientes extends JFrame {
-
-    private final DefaultTableModel modeloPedidos;
-    private final DefaultTableModel modeloDetalle;
-    private final JLabel lblCliente = new JLabel("Sin cliente seleccionado");
-    private ClienteServicio clienteServicio;
-    private PedidoServicio pedidoServicio;
-    private Connection conexion;
+public class FormPedidosPendientes extends FormularioAsincrono {
+    private final JTextField identificador = new JTextField(15);
+    private final DefaultTableModel modelo = tablaModelo("Pedido", "Fecha", "Total", "Puntos previstos");
+    private final DefaultTableModel detalle = tablaModelo("Tipo", "Producto/menú ID", "Cantidad", "Precio", "Subtotal", "Puntos");
+    private final JTable tabla = new JTable(modelo);
+    private final JLabel cliente = new JLabel("Sin cliente seleccionado");
+    private int idCliente;
 
     public FormPedidosPendientes() {
-        setTitle("Pedidos Pendientes");
-        setSize(900, 600);
-        setLocationRelativeTo(null);
-        setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-
-        try {
-            conexion = ConexionOracle.obtener();
-            clienteServicio = new ClienteServicio(new ClienteDAOImpl(conexion));
-            pedidoServicio = new PedidoServicio(new PedidoDAOImpl(conexion), new ProductoDAOImpl(conexion), conexion);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error al conectar con la base de datos.", "Error", JOptionPane.ERROR_MESSAGE);
-        }
-
-        // Panel búsqueda cliente
-        JPanel panelBuscar = new JPanel(new FlowLayout(FlowLayout.LEFT));
-        JTextField txtIdentificador = new JTextField(15);
-        JButton btnBuscar = new JButton("Buscar cliente");
-        panelBuscar.add(new JLabel("Identificador:"));
-        panelBuscar.add(txtIdentificador);
-        panelBuscar.add(btnBuscar);
-        panelBuscar.add(lblCliente);
-
-        // Tabla pedidos
-        modeloPedidos = new DefaultTableModel(new Object[]{"ID Pedido", "Fecha", "Total", "Puntos"}, 0) {
-            public boolean isCellEditable(int row, int col) { return false; }
-        };
-        JTable tablaPedidos = new JTable(modeloPedidos);
-        tablaPedidos.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-
-        // Tabla detalle
-        modeloDetalle = new DefaultTableModel(new Object[]{"Tipo", "ID Producto/Menú", "Cantidad", "Precio unitario", "Subtotal", "Puntos"}, 0) {
-            public boolean isCellEditable(int row, int col) { return false; }
-        };
-        JTable tablaDetalle = new JTable(modeloDetalle);
-
-        // Panel botones
-        JPanel panelBotones = new JPanel(new FlowLayout(FlowLayout.RIGHT));
-        JButton btnAnular = new JButton("Anular pedido");
-        panelBotones.add(btnAnular);
-
-        // Layout — tabla pedidos arriba, detalle abajo
-        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT,
-            new JScrollPane(tablaPedidos), new JScrollPane(tablaDetalle));
-        splitPane.setDividerLocation(200);
-
-        setLayout(new BorderLayout());
-        add(panelBuscar, BorderLayout.NORTH);
-        add(splitPane, BorderLayout.CENTER);
-        add(panelBotones, BorderLayout.SOUTH);
-
-        // Acciones
-        btnBuscar.addActionListener(e -> buscarPedidos(txtIdentificador.getText().trim()));
-        tablaPedidos.getSelectionModel().addListSelectionListener(e -> {
-            if (!e.getValueIsAdjusting()) cargarDetalle(tablaPedidos.getSelectedRow());
-        });
-        btnAnular.addActionListener(e -> anular(tablaPedidos.getSelectedRow()));
+        setTitle("Pedidos pendientes"); setSize(950, 550); setLocationRelativeTo(null);
+        JPanel norte = new JPanel(); JButton buscar = new JButton("Buscar cliente");
+        norte.add(new JLabel("Identificador:")); norte.add(identificador); norte.add(buscar); norte.add(cliente);
+        add(norte, BorderLayout.NORTH);
+        tabla.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JSplitPane panel = new JSplitPane(JSplitPane.VERTICAL_SPLIT, new JScrollPane(tabla), new JScrollPane(new JTable(detalle)));
+        panel.setDividerLocation(220); add(panel, BorderLayout.CENTER);
+        JPanel sur = new JPanel(); JButton ver = new JButton("Ver detalle");
+        JButton anular = new JButton("Anular pedido"); JButton cobrar = new JButton("Cobrar pedido");
+        sur.add(ver); sur.add(anular); sur.add(cobrar); add(sur, BorderLayout.SOUTH);
+        buscar.addActionListener(e -> buscar());
+        ver.addActionListener(e -> verDetalle());
+        anular.addActionListener(e -> anular());
+        cobrar.addActionListener(e -> { Integer id = seleccionado(); if (id != null) new FormCobro(id).setVisible(true); });
+        tabla.getSelectionModel().addListSelectionListener(e -> detalle.setRowCount(0));
     }
-
-    private void buscarPedidos(String identificador) {
-        if (identificador.isBlank()) return;
-        try {
-            Cliente cliente = clienteServicio.buscarPorIdentificador(identificador);
-            if (cliente == null) {
-                JOptionPane.showMessageDialog(this, "No se encontró el cliente.", "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
-                return;
-            }
-            lblCliente.setText(cliente.getNombre() + " | Puntos: " + cliente.getSaldoPuntos());
-            List<Pedido> pedidos = pedidoServicio.listarPendientesPorCliente(cliente.getIdCliente());
-            modeloPedidos.setRowCount(0);
-            modeloDetalle.setRowCount(0);
-            for (Pedido p : pedidos) {
-                modeloPedidos.addRow(new Object[]{p.getIdPedido(), p.getFecha(), p.getTotal(), p.getPuntosGenerados()});
-            }
-            if (pedidos.isEmpty()) {
-                JOptionPane.showMessageDialog(this, "El cliente no tiene pedidos pendientes.", "Sin resultados", JOptionPane.INFORMATION_MESSAGE);
-            }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
+    static DefaultTableModel tablaModelo(String... columnas) {
+        return new DefaultTableModel(columnas, 0) { public boolean isCellEditable(int f, int c) { return false; } };
     }
-
-    private void cargarDetalle(int fila) {
-        if (fila < 0) return;
-        int idPedido = (int) modeloPedidos.getValueAt(fila, 0);
-        try {
-            List<PedidoDetalle> detalle = pedidoServicio.listarDetalle(idPedido);
-            modeloDetalle.setRowCount(0);
-            for (PedidoDetalle d : detalle) {
-                modeloDetalle.addRow(new Object[]{
-                    d.getTipoItem(),
-                    d.getIdProducto() != null ? d.getIdProducto() : d.getIdMenu(),
-                    d.getCantidad(), d.getPrecioUnitario(), d.getSubtotal(), d.getPuntos()
-                });
+    private Integer seleccionado() {
+        int fila = tabla.getSelectedRow();
+        if (fila < 0) { JOptionPane.showMessageDialog(this, "Selecciona un pedido."); return null; }
+        return (Integer)modelo.getValueAt(fila, 0);
+    }
+    private record Resultado(Cliente cliente, List<Pedido> pedidos) {}
+    private void buscar() {
+        String texto = identificador.getText().trim();
+        modelo.setRowCount(0); detalle.setRowCount(0); idCliente = 0; cliente.setText("Sin cliente seleccionado");
+        ejecutar(() -> {
+            try (Connection c = ConexionOracle.obtener()) {
+                Cliente encontrado = new ClienteDAOImpl(c).buscarPorIdentificador(texto);
+                return new Resultado(encontrado, encontrado == null ? List.of() : new PedidoDAOImpl(c).listarPendientesPorCliente(encontrado.getIdCliente()));
             }
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, "Error al cargar detalle: " + e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
+        }, resultado -> {
+            if (resultado.cliente() == null) { JOptionPane.showMessageDialog(this, "No se encontró el cliente."); return; }
+            idCliente = resultado.cliente().getIdCliente(); cliente.setText(resultado.cliente().getNombre());
+            mostrar(resultado.pedidos());
+        }, "No se pudieron buscar los pedidos.");
     }
-
-    private void anular(int fila) {
-        if (fila < 0) { JOptionPane.showMessageDialog(this, "Selecciona un pedido de la tabla."); return; }
-        int idPedido = (int) modeloPedidos.getValueAt(fila, 0);
-        int confirmacion = JOptionPane.showConfirmDialog(this, "¿Anular el pedido #" + idPedido + "?", "Confirmar", JOptionPane.YES_NO_OPTION);
-        if (confirmacion != JOptionPane.YES_OPTION) return;
-        try {
-            pedidoServicio.anular(idPedido);
-            JOptionPane.showMessageDialog(this, "Pedido #" + idPedido + " anulado correctamente.");
-            modeloPedidos.removeRow(fila);
-            modeloDetalle.setRowCount(0);
-        } catch (Exception e) {
-            JOptionPane.showMessageDialog(this, e.getMessage(), "Error", JOptionPane.ERROR_MESSAGE);
-        }
+    private void mostrar(List<Pedido> pedidos) {
+        modelo.setRowCount(0); detalle.setRowCount(0);
+        for (Pedido p : pedidos) modelo.addRow(new Object[]{p.getIdPedido(), p.getFecha(), p.getTotal(), p.getPuntosGenerados()});
     }
+    private void verDetalle() {
+        Integer id = seleccionado(); if (id == null) return;
+        ejecutar(() -> {
+            try (Connection c = ConexionOracle.obtener()) { return new PedidoDAOImpl(c).listarDetalle(id); }
+        }, filas -> {
+            detalle.setRowCount(0);
+            for (PedidoDetalle d : filas) detalle.addRow(new Object[]{d.getTipoItem(), d.getIdProducto() != null ? d.getIdProducto() : d.getIdMenu(), d.getCantidad(), d.getPrecioUnitario(), d.getSubtotal(), d.getPuntos()});
+        }, "No se pudo cargar el detalle.");
+    }
+    private void anular() {
+        Integer id = seleccionado(); if (id == null) return;
+        if (JOptionPane.showConfirmDialog(this, "¿Anular el pedido #" + id + "?", "Anular", JOptionPane.YES_NO_OPTION) != JOptionPane.YES_OPTION) return;
+        int clienteActual = idCliente;
+        ejecutar(() -> {
+            try (Connection c = ConexionOracle.obtener()) {
+                new PedidoServicio(new PedidoDAOImpl(c), new ProductoDAOImpl(c), c).anular(id);
+                return new PedidoDAOImpl(c).listarPendientesPorCliente(clienteActual);
+            }
+        }, this::mostrar, "No se pudo anular el pedido.");
+    }
+    @Override protected void habilitarControles(boolean habilitar) { FormPedido.habilitar(getContentPane(), habilitar); }
 }

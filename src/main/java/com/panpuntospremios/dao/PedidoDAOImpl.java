@@ -47,7 +47,7 @@ public class PedidoDAOImpl implements PedidoDAO {
 
     @Override
     public Pedido buscarPorId(int idPedido) throws SQLException {
-        String sql = "SELECT id_pedido, id_cliente, fecha, estado, total, puntos_generados, metodo_pago FROM pedido WHERE id_pedido = ?";
+        String sql = "SELECT id_pedido, id_cliente, fecha, estado, total, puntos_generados, metodo_pago, referencia_pago FROM pedido WHERE id_pedido = ?";
         try (PreparedStatement ps = conexion.prepareStatement(sql)) {
             ps.setInt(1, idPedido);
             try (ResultSet rs = ps.executeQuery()) {
@@ -59,7 +59,7 @@ public class PedidoDAOImpl implements PedidoDAO {
 
     @Override
     public List<Pedido> listarPendientesPorCliente(int idCliente) throws SQLException {
-        String sql = "SELECT id_pedido, id_cliente, fecha, estado, total, puntos_generados, metodo_pago FROM pedido WHERE id_cliente = ? AND estado = 'PENDIENTE' ORDER BY fecha DESC";
+        String sql = "SELECT id_pedido, id_cliente, fecha, estado, total, puntos_generados, metodo_pago, referencia_pago FROM pedido WHERE id_cliente = ? AND estado = 'PENDIENTE' ORDER BY fecha DESC";
         List<Pedido> lista = new ArrayList<>();
         try (PreparedStatement ps = conexion.prepareStatement(sql)) {
             ps.setInt(1, idCliente);
@@ -72,7 +72,7 @@ public class PedidoDAOImpl implements PedidoDAO {
 
     @Override
     public List<PedidoDetalle> listarDetalle(int idPedido) throws SQLException {
-        String sql = "SELECT id_detalle, id_pedido, tipo_item, id_producto, id_menu, cantidad, precio_unitario, subtotal, puntos FROM pedido_detalle WHERE id_pedido = ?";
+        String sql = "SELECT id_detalle, id_pedido, tipo_item, id_producto, id_menu, cantidad, precio_unitario, subtotal, puntos FROM pedido_detalle WHERE id_pedido = ? ORDER BY id_detalle";
         List<PedidoDetalle> lista = new ArrayList<>();
         try (PreparedStatement ps = conexion.prepareStatement(sql)) {
             ps.setInt(1, idPedido);
@@ -109,12 +109,12 @@ public class PedidoDAOImpl implements PedidoDAO {
         return new Pedido(
             rs.getInt("id_pedido"),
             rs.getInt("id_cliente"),
-            rs.getDate("fecha"),
+            rs.getTimestamp("fecha"),
             rs.getString("estado"),
             rs.getBigDecimal("total"),
             rs.getInt("puntos_generados"),
             rs.getString("metodo_pago"),
-            null
+            rs.getString("referencia_pago")
         );
     }
 }

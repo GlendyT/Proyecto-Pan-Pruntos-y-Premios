@@ -10,7 +10,7 @@ public class MenuCompleto extends ItemVenta {
 
     @Override
     public int calcularPuntos() {
-        return getCantidad() * 8;
+        return Math.multiplyExact(getCantidad(), 8);
     }
 
     public Menu getMenu() { return menu; }

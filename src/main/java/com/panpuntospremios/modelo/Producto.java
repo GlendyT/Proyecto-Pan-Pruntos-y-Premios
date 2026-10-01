@@ -33,4 +33,7 @@ public class Producto {
     public void setPrecio(BigDecimal precio) { this.precio = precio; }
     public void setExistencia(int existencia) { this.existencia = existencia; }
     public void setActivo(boolean activo) { this.activo = activo; }
+
+    @Override
+    public String toString() { return nombre; }
 }

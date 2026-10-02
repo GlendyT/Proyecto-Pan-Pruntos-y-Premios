@@ -60,7 +60,7 @@ Las vistas invocarán servicios; los servicios coordinarán las reglas y los DAO
 | 4 | Productos, menús e inventario | Completada (9 de 9 tareas verificadas) | Fases 2 y 3 |
 | 5 | Pedidos | Completada (9 de 9; verificación aislada) | Fases 3 y 4 |
 | 6 | Cobro y acumulación de puntos | Completada (11 de 11 tareas verificadas) | Fase 5 |
-| 7 | Recompensas y canjes | Pendiente | Fases 4 y 6 |
+| 7 | Recompensas y canjes | Completada (9 de 9 tareas verificadas) | Fases 4 y 6 |
 | 8 | Reportes y entrega | Pendiente | Fases anteriores |
 
 ## Fase 1. Base técnica y esquema
@@ -190,17 +190,19 @@ Verificación: `VentaServicioTest` aporta 16 pruebas de efectivo exacto/con camb
 
 ## Fase 7. Recompensas y canjes
 
-- [ ] Crear DAO de recompensas, canjes y movimientos de puntos.
-- [ ] Crear `FidelizacionServicio` y `FormFidelizacion`.
-- [ ] Permitir administrar el catálogo de recompensas y sus costos en puntos.
-- [ ] Mostrar saldo, recompensas disponibles e historial de puntos del cliente.
-- [ ] Validar cliente/recompensa activos, puntos suficientes y disponibilidad del producto o componentes del menú.
-- [ ] Descontar puntos e inventario y registrar canje y movimientos en una misma transacción.
-- [ ] Proteger el saldo y las existencias frente a canjes concurrentes.
-- [ ] Integrar consultas de historial de pedidos y puntos en la pantalla de clientes.
-- [ ] Probar canje exitoso, puntos insuficientes, stock insuficiente y rollback.
+- [x] Crear DAO de recompensas, canjes y movimientos de puntos.
+- [x] Crear `PuntosYCanjesServicio` y `FormPuntosYCanjes`.
+- [x] Permitir administrar el catálogo de recompensas y sus costos en puntos.
+- [x] Mostrar saldo, recompensas disponibles e historial de puntos del cliente.
+- [x] Validar cliente/recompensa activos, puntos suficientes y disponibilidad del producto o componentes del menú.
+- [x] Descontar puntos e inventario y registrar canje y movimientos en una misma transacción.
+- [x] Proteger el saldo y las existencias frente a canjes concurrentes.
+- [x] Integrar consultas de historial de pedidos y puntos en la pantalla de clientes.
+- [x] Probar canje exitoso, puntos insuficientes, stock insuficiente y rollback.
 
 Criterio de cierre: canjes e historiales funcionales, sin saldos negativos ni cambios parciales.
+
+Verificación: `RecompensaDAO`/`CanjeDAO`/`MovimientoPuntosDAO` con `PreparedStatement`; `PuntosYCanjesServicio.canjear()` bloquea cliente, recompensa y productos (estos últimos por ID creciente, incluyendo los tres componentes si la recompensa es un menú), valida cliente/recompensa activos, puntos suficientes y stock, y descuenta puntos, existencias y registra `canje`/`movimiento_inventario`/`movimiento_puntos` en una sola transacción con rollback ante cualquier fallo. `registrarRecompensa`/`actualizarRecompensa`/`desactivarRecompensa` administran el catálogo con validación (nombre, puntos > 0, exactamente producto o menú). `FormPuntosYCanjes` (reemplaza a `FidelizacionServicio`/`FormFidelizacion`) organiza la pantalla en pestañas: Canjear recompensa, Administrar recompensas, Historial de puntos e Historial de pedidos; se abre también desde `FormClientes` mediante el botón **Ver puntos e historial**, precargando el cliente seleccionado. `PuntosYCanjesServicioTest` cubre canje exitoso de producto, canje exitoso de menú (tres componentes), puntos insuficientes sin cambios parciales, stock insuficiente sin cambios parciales, y una prueba con dos hilos/conexiones reales que confirma que dos canjes simultáneos con puntos justos para uno solo no dejan saldo negativo. Suite aislada: 61 pruebas, 0 fallos, 0 errores, 0 omitidas (`mvn clean test`).
 
 ## Fase 8. Reportes y entrega
 
@@ -351,5 +353,6 @@ Ambas integraciones usan datos temporales únicos y ejecutan su limpieza al fina
 | 2026-09-25 | Integración continua | Se agregó GitHub Actions para compilar y ejecutar las pruebas aisladas únicamente en pull requests desde cualquier rama hacia `development` | `.github/workflows/java-ci.yml`, `README.md`, `PLAN_IMPLEMENTACION.md` | Workflow con JDK 17, caché Maven, permisos de solo lectura y `mvn test`; no utiliza secretos ni ejecuta la integración Oracle | Confirmar la primera ejecución al abrir o actualizar un pull request hacia `development` |
 | 2026-09-25 | Cierre de fase 4 | Se implementaron catálogo de productos y menús, abastecimiento, historial, formularios Swing y transacciones con rollback | DAO y servicios de productos, menús e inventario; `Transaccion.java`; `FormProductos.java`, `FormMenus.java`, `FormInventario.java`, `FormularioAsincrono.java`; pruebas de fase 4; documentación | Suite aislada: 24 pruebas correctas. Integración Oracle: 1 prueba correcta con creación, reconexión y limpieza de datos temporales; `BUILD SUCCESS` | Antes de ventas, resolver la regularización histórica del inventario inicial registrada en fase 1; continuar con fase 5 |
 | 2026-09-25 | Documentación operativa | Se documentaron comandos de compilación, ejecución, pruebas aisladas, empaquetado, JAR, integraciones Oracle y CI; se actualizó la navegación de fases 3 y 4 | `README.md`, `PLAN_IMPLEMENTACION.md` | Comandos contrastados con `pom.xml`, pruebas e integraciones ejecutadas; suite actual de 24 pruebas | Mantener los comandos y conteos actualizados al incorporar nuevas fases |
+| 2026-10-01 | Cierre de fase 7 | Se implementaron `RecompensaDAO`/`CanjeDAO`/`MovimientoPuntosDAO`, `PuntosYCanjesServicio` (bloqueo ordenado de cliente/recompensa/productos, consolidación de componentes de menú, transacción atómica de canje) y `FormPuntosYCanjes` con pestañas de canje, administración de recompensas, historial de puntos e historial de pedidos; se integró en `FormClientes` mediante el botón Ver puntos e historial | `RecompensaDAO.java`, `RecompensaDAOImpl.java`, `CanjeDAO.java`, `CanjeDAOImpl.java`, `MovimientoPuntosDAO.java`, `MovimientoPuntosDAOImpl.java`, `PuntosYCanjesServicio.java`, `FormPuntosYCanjes.java`, `FormClientes.java`, `VentanaPrincipal.java`, `PedidoDAO.java`, `PedidoDAOImpl.java`, `PuntosYCanjesServicioTest.java`, `PLAN_IMPLEMENTACION.md` | `mvn clean test`: 61 pruebas, 0 fallos, 0 errores, 0 omitidas; incluye canje exitoso de producto y de menú, puntos insuficientes, stock insuficiente y una prueba con dos hilos/conexiones que confirma que dos canjes simultáneos con puntos justos para uno solo no dejan saldo negativo. No se ejecutó contra Oracle compartido | Continuar con fase 8 (reportes y entrega) |
 
 Para cada próximo avance, agregar una fila indicando qué se completó y cómo se verificó. Si una prueba no se pudo ejecutar, registrar el motivo; no marcar la tarea como verificada.

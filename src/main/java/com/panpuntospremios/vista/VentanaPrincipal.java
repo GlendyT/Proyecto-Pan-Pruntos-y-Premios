@@ -41,9 +41,15 @@ public class VentanaPrincipal extends JFrame {
         itemCobro.addActionListener(e -> new FormCobro().setVisible(true));
         menuPedidos.add(itemCobro);
 
+        JMenu menuPuntosYCanjes = new JMenu("Puntos y canjes");
+        JMenuItem itemPuntosYCanjes = new JMenuItem("Canjear recompensa");
+        itemPuntosYCanjes.addActionListener(e -> new FormPuntosYCanjes().setVisible(true));
+        menuPuntosYCanjes.add(itemPuntosYCanjes);
+
         menuBar.add(menuClientes);
         menuBar.add(menuCatalogo);
         menuBar.add(menuPedidos);
+        menuBar.add(menuPuntosYCanjes);
         setJMenuBar(menuBar);
 
         JLabel lblBienvenida = new JLabel("Bienvenido al sistema Pan, Puntos y Premios", SwingConstants.CENTER);

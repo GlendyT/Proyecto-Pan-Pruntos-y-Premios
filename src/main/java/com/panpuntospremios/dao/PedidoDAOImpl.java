@@ -71,6 +71,19 @@ public class PedidoDAOImpl implements PedidoDAO {
     }
 
     @Override
+    public List<Pedido> listarPorCliente(int idCliente) throws SQLException {
+        String sql = "SELECT id_pedido, id_cliente, fecha, estado, total, puntos_generados, metodo_pago, referencia_pago FROM pedido WHERE id_cliente = ? ORDER BY fecha DESC, id_pedido DESC";
+        List<Pedido> lista = new ArrayList<>();
+        try (PreparedStatement ps = conexion.prepareStatement(sql)) {
+            ps.setInt(1, idCliente);
+            try (ResultSet rs = ps.executeQuery()) {
+                while (rs.next()) lista.add(mapear(rs));
+            }
+        }
+        return lista;
+    }
+
+    @Override
     public List<PedidoDetalle> listarDetalle(int idPedido) throws SQLException {
         String sql = "SELECT id_detalle, id_pedido, tipo_item, id_producto, id_menu, cantidad, precio_unitario, subtotal, puntos FROM pedido_detalle WHERE id_pedido = ? ORDER BY id_detalle";
         List<PedidoDetalle> lista = new ArrayList<>();

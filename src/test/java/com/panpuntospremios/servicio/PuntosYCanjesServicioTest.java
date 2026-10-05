@@ -65,6 +65,24 @@ class PuntosYCanjesServicioTest extends BasePedidoTest {
     }
 
     @Test
+    void falloSqlTrasDescontarElPrimerComponenteRevierteTodoElCanje() throws Exception {
+        darPuntos(60);
+        // El producto ID 1 se descuenta antes de intentar registrar su movimiento.
+        ejecutar("ALTER TABLE movimiento_inventario ADD CONSTRAINT fallo_canje CHECK (id_producto <> 1)");
+
+        assertThrows(SQLException.class, () -> servicioPuntos().canjear(1, 4));
+
+        assertEquals(60, numero("SELECT saldo_puntos FROM cliente WHERE id_cliente = 1"));
+        assertEquals(25, numero("SELECT existencia FROM producto WHERE codigo = 'SAN001'"));
+        assertEquals(50, numero("SELECT existencia FROM producto WHERE codigo = 'BEB001'"));
+        assertEquals(35, numero("SELECT existencia FROM producto WHERE codigo = 'ACO001'"));
+        assertEquals(0, numero("SELECT COUNT(*) FROM canje"));
+        assertEquals(0, numero("SELECT COUNT(*) FROM movimiento_inventario"));
+        assertEquals(0, numero("SELECT COUNT(*) FROM movimiento_puntos"));
+        assertTrue(c.getAutoCommit());
+    }
+
+    @Test
     void dosCanjesSimultaneosConPuntosJustosParaUnoSoloNoDejanSaldoNegativo() throws Exception {
         darPuntos(10);
 

@@ -41,6 +41,11 @@ public class VentanaPrincipal extends JFrame {
         itemCobro.addActionListener(e -> new FormCobro().setVisible(true));
         menuPedidos.add(itemCobro);
 
+        JMenu menuReportes = new JMenu("Reportes");
+        JMenuItem itemReportes = new JMenuItem("Consultar reportes");
+        itemReportes.addActionListener(e -> new FormReportes().setVisible(true));
+        menuReportes.add(itemReportes);
+
         JMenu menuPuntosYCanjes = new JMenu("Puntos y canjes");
         JMenuItem itemPuntosYCanjes = new JMenuItem("Canjear recompensa");
         itemPuntosYCanjes.addActionListener(e -> new FormPuntosYCanjes().setVisible(true));
@@ -49,6 +54,7 @@ public class VentanaPrincipal extends JFrame {
         menuBar.add(menuClientes);
         menuBar.add(menuCatalogo);
         menuBar.add(menuPedidos);
+        menuBar.add(menuReportes);
         menuBar.add(menuPuntosYCanjes);
         setJMenuBar(menuBar);
 

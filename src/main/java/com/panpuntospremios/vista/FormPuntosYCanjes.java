@@ -46,11 +46,14 @@ public class FormPuntosYCanjes extends JFrame {
 
     // ── Estado ───────────────────────────────────────────────────────────────
     private Connection conexion;
+    private volatile Connection conexionPendiente;
     private PuntosYCanjesServicio servicio;
     private ClienteServicio clienteServicio;
     private Cliente clienteActual;
     private volatile boolean cerrado;
     private SwingWorker<?, ?> tareaActual;
+
+    private record Historiales(List<MovimientoPuntos> puntos, List<com.panpuntospremios.modelo.Pedido> pedidos) {}
 
     private static final SimpleDateFormat SDF = new SimpleDateFormat("dd/MM/yyyy HH:mm");
 
@@ -152,13 +155,31 @@ public class FormPuntosYCanjes extends JFrame {
     // ── Conexión ─────────────────────────────────────────────────────────────
 
     private void conectar(Cliente clienteInicial) {
-        new SwingWorker<Connection, Void>() {
+        SwingWorker<Connection, Void> trabajador = new SwingWorker<>() {
             @Override protected Connection doInBackground() throws Exception {
-                return ConexionOracle.obtener();
+                Connection nueva = ConexionOracle.obtener();
+                conexionPendiente = nueva;
+                if (cerrado || isCancelled()) {
+                    cerrarConexion(nueva);
+                    conexionPendiente = null;
+                    return null;
+                }
+                return nueva;
             }
             @Override protected void done() {
                 try {
+                    if (cerrado || isCancelled()) {
+                        cerrarConexion(conexionPendiente);
+                        conexionPendiente = null;
+                        return;
+                    }
                     conexion = get();
+                    conexionPendiente = null;
+                    if (conexion == null || cerrado) {
+                        cerrarConexion(conexion);
+                        conexion = null;
+                        return;
+                    }
                     servicio = new PuntosYCanjesServicio(conexion);
                     clienteServicio = new ClienteServicio(new ClienteDAOImpl(conexion));
                     if (clienteInicial != null) {
@@ -173,9 +194,15 @@ public class FormPuntosYCanjes extends JFrame {
                     Thread.currentThread().interrupt();
                 } catch (ExecutionException e) {
                     mostrarError("No se pudo conectar.", e.getCause());
+                } finally {
+                    if (tareaActual == this) tareaActual = null;
+                    actualizarControles();
                 }
             }
-        }.execute();
+        };
+        tareaActual = trabajador;
+        actualizarControles();
+        trabajador.execute();
     }
 
     // ── Operaciones: pestaña Canjear ─────────────────────────────────────────
@@ -198,11 +225,11 @@ public class FormPuntosYCanjes extends JFrame {
                 clienteActual = null;
                 lblSaldo.setText("Saldo: —");
                 modeloHistorial.setRowCount(0);
+                modeloPedidos.setRowCount(0);
             } else {
                 clienteActual = cliente;
                 lblSaldo.setText("Saldo: " + cliente.getSaldoPuntos() + " pts  |  " + cliente.getNombre());
-                cargarHistorial();
-                cargarPedidos();
+                cargarHistoriales();
             }
             actualizarControles();
         }, "Error al buscar el cliente.");
@@ -340,12 +367,28 @@ public class FormPuntosYCanjes extends JFrame {
         }, "Error al cargar el historial de pedidos.");
     }
 
+    private void cargarHistoriales() {
+        if (clienteActual == null) return;
+        int id = clienteActual.getIdCliente();
+        ejecutar(() -> new Historiales(
+                servicio.listarMovimientosPuntos(id), servicio.listarPedidosPorCliente(id)), historiales -> {
+            modeloHistorial.setRowCount(0);
+            for (MovimientoPuntos m : historiales.puntos())
+                modeloHistorial.addRow(new Object[]{
+                    SDF.format(m.getFecha()), m.getTipo(), m.getPuntos(), m.getReferencia()});
+            modeloPedidos.setRowCount(0);
+            for (com.panpuntospremios.modelo.Pedido p : historiales.pedidos())
+                modeloPedidos.addRow(new Object[]{p.getIdPedido(), SDF.format(p.getFecha()),
+                    p.getEstado(), p.getTotal(), p.getPuntosGenerados()});
+        }, "Error al cargar los historiales del cliente.");
+    }
+
     // ── Infraestructura ──────────────────────────────────────────────────────
 
     private <T> void ejecutar(java.util.concurrent.Callable<T> op,
                                java.util.function.Consumer<T> ok, String msgError) {
-        actualizarControles();
-        tareaActual = new SwingWorker<T, Void>() {
+        if (cerrado || (tareaActual != null && !tareaActual.isDone())) return;
+        SwingWorker<T, Void> trabajador = new SwingWorker<>() {
             @Override protected T doInBackground() throws Exception { return op.call(); }
             @Override protected void done() {
                 try {
@@ -355,14 +398,20 @@ public class FormPuntosYCanjes extends JFrame {
                     Thread.currentThread().interrupt(); mostrarError(msgError, e);
                 } catch (ExecutionException e) {
                     mostrarError(msgError, e.getCause());
-                } finally { tareaActual = null; actualizarControles(); }
+                } finally {
+                    if (tareaActual == this) tareaActual = null;
+                    actualizarControles();
+                }
             }
         };
-        tareaActual.execute();
+        tareaActual = trabajador;
+        actualizarControles();
+        trabajador.execute();
     }
 
     private void actualizarControles() {
-        boolean listo = conexion != null && !cerrado && tareaActual == null;
+        boolean listo = conexion != null && !cerrado &&
+            (tareaActual == null || tareaActual.isDone());
         boolean conCliente = listo && clienteActual != null;
         btnBuscar.setEnabled(listo);
         txtIdentificador.setEnabled(listo);
@@ -373,7 +422,7 @@ public class FormPuntosYCanjes extends JFrame {
         btnVerHistorial.setEnabled(conCliente);
         btnVerPedidos.setEnabled(conCliente);
         setCursor(Cursor.getPredefinedCursor(
-            tareaActual != null ? Cursor.WAIT_CURSOR : Cursor.DEFAULT_CURSOR));
+            tareaActual != null && !tareaActual.isDone() ? Cursor.WAIT_CURSOR : Cursor.DEFAULT_CURSOR));
     }
 
     private void mostrarError(String ctx, Throwable e) {
@@ -385,7 +434,14 @@ public class FormPuntosYCanjes extends JFrame {
     private void cerrarRecursos() {
         cerrado = true;
         if (tareaActual != null) tareaActual.cancel(true);
-        if (conexion != null) try { conexion.close(); } catch (Exception ignored) {}
+        cerrarConexion(conexionPendiente);
+        conexionPendiente = null;
+        cerrarConexion(conexion);
+        conexion = null;
+    }
+
+    private void cerrarConexion(Connection c) {
+        if (c != null) try { c.close(); } catch (Exception ignored) {}
     }
 
     private static DefaultTableModel modelo(String... columnas) {

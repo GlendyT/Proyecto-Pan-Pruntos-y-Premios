@@ -2,9 +2,9 @@
 
 Fecha de creación: 2026-09-20.
 
-Estado general: fases 2 a 6 completadas; fase 1 en curso; fases 7 y 8 pendientes. Fase 6 verificada en pruebas aisladas y contra Oracle el 2026-09-30.
+Estado general: fases 2 a 7 completadas; fases 1 y 8 en curso. Fases 6 y 7 verificadas en pruebas aisladas; fase 6 además se verificó en Oracle. Auditoría actualizada el 2026-10-04.
 
-Este documento registra el alcance previsto, los avances, las verificaciones y las decisiones pendientes. Las marcas reflejan los archivos presentes y las verificaciones disponibles en el repositorio al 2026-09-30.
+Este documento registra el alcance previsto, los avances, las verificaciones y las decisiones pendientes. Las marcas reflejan los archivos presentes y las verificaciones disponibles en el repositorio al 2026-10-04.
 
 ## Cómo llevar el seguimiento
 
@@ -27,7 +27,7 @@ El `Main.java` actual inicia `VentanaPrincipal` en el hilo de eventos de Swing. 
 
 El esquema local define 10 tablas: `cliente`, `producto`, `menu`, `menu_detalle`, `pedido`, `pedido_detalle`, `movimiento_inventario`, `movimiento_puntos`, `recompensa` y `canje`. El usuario confirmó que las tablas y columnas ya existen en Oracle. Los resultados aportados en `result.json` fueron revisados y concuerdan con el DDL en tablas, columnas, restricciones, valores predeterminados e identidades.
 
-El proyecto ya contiene modelos, enums, excepciones, DAO y servicios para clientes, productos, menús e inventario, además de sus formularios Java Swing. La suite aislada actual contiene 56 pruebas automatizadas; las funciones o procedimientos almacenados siguen sin estar definidos en el SQL revisado.
+El proyecto ya contiene modelos, enums, excepciones, DAO y servicios para clientes, productos, menús, inventario, pedidos, cobros, fidelización y reportes, además de sus formularios Java Swing. La suite aislada actual contiene 67 pruebas automatizadas; las funciones o procedimientos almacenados siguen sin estar definidos en el SQL revisado.
 
 El PDF del enunciado mencionado en el README no está disponible en la ruta del proyecto. Queda pendiente confirmar los reportes obligatorios y cualquier exigencia específica de PL/SQL.
 
@@ -59,9 +59,9 @@ Las vistas invocarán servicios; los servicios coordinarán las reglas y los DAO
 | 3 | Clientes y primera pantalla | Completada (7 de 7 tareas verificadas) | Fase 2 |
 | 4 | Productos, menús e inventario | Completada (9 de 9 tareas verificadas) | Fases 2 y 3 |
 | 5 | Pedidos | Completada (9 de 9; verificación aislada) | Fases 3 y 4 |
-| 6 | Cobro y acumulación de puntos | Completada (11 de 11 tareas verificadas) | Fase 5 |
-| 7 | Recompensas y canjes | Completada (9 de 9 tareas verificadas) | Fases 4 y 6 |
-| 8 | Reportes y entrega | Pendiente | Fases anteriores |
+| 6 | Cobro y acumulación de puntos | Completada (12 de 12 tareas verificadas) | Fase 5 |
+| 7 | Recompensas y canjes | Completada (10 de 10 tareas verificadas) | Fases 4 y 6 |
+| 8 | Reportes y entrega | En curso (7 de 11 tareas verificadas; alcance provisional confirmado por el usuario) | Fases anteriores |
 
 ## Fase 1. Base técnica y esquema
 
@@ -197,28 +197,33 @@ Verificación: `VentaServicioTest` aporta 16 pruebas de efectivo exacto/con camb
 - [x] Validar cliente/recompensa activos, puntos suficientes y disponibilidad del producto o componentes del menú.
 - [x] Descontar puntos e inventario y registrar canje y movimientos en una misma transacción.
 - [x] Proteger el saldo y las existencias frente a canjes concurrentes.
-- [x] Integrar consultas de historial de pedidos y puntos en la pantalla de clientes.
-- [x] Probar canje exitoso, puntos insuficientes, stock insuficiente y rollback.
+- [x] Integrar consultas de historial de pedidos y puntos en la pantalla de clientes de forma segura. **Se cargan en serie dentro de una tarea y las tareas encadenadas preservan su seguimiento; el cierre cancela el trabajo y libera la conexión.**
+- [x] Probar canje exitoso, puntos insuficientes y stock insuficiente.
+- [x] Probar rollback ante un fallo forzado después de que la transacción haya escrito cambios.
 
 Criterio de cierre: canjes e historiales funcionales, sin saldos negativos ni cambios parciales.
 
-Verificación: `RecompensaDAO`/`CanjeDAO`/`MovimientoPuntosDAO` con `PreparedStatement`; `PuntosYCanjesServicio.canjear()` bloquea cliente, recompensa y productos (estos últimos por ID creciente, incluyendo los tres componentes si la recompensa es un menú), valida cliente/recompensa activos, puntos suficientes y stock, y descuenta puntos, existencias y registra `canje`/`movimiento_inventario`/`movimiento_puntos` en una sola transacción con rollback ante cualquier fallo. `registrarRecompensa`/`actualizarRecompensa`/`desactivarRecompensa` administran el catálogo con validación (nombre, puntos > 0, exactamente producto o menú). `FormPuntosYCanjes` (reemplaza a `FidelizacionServicio`/`FormFidelizacion`) organiza la pantalla en pestañas: Canjear recompensa, Administrar recompensas, Historial de puntos e Historial de pedidos; se abre también desde `FormClientes` mediante el botón **Ver puntos e historial**, precargando el cliente seleccionado. `PuntosYCanjesServicioTest` cubre canje exitoso de producto, canje exitoso de menú (tres componentes), puntos insuficientes sin cambios parciales, stock insuficiente sin cambios parciales, y una prueba con dos hilos/conexiones reales que confirma que dos canjes simultáneos con puntos justos para uno solo no dejan saldo negativo. Suite aislada: 61 pruebas, 0 fallos, 0 errores, 0 omitidas (`mvn clean test`).
+Correcciones y verificación del 2026-10-04: las consultas de ambos historiales se agruparon en una sola tarea secuencial. El seguimiento conserva correctamente trabajadores encadenados y cierra conexiones si la ventana se cierra mientras conecta o consulta. Se añadió un fallo SQL forzado en el movimiento del primer producto de un menú; la prueba verifica que se reviertan existencias, saldo, movimientos y canje. `PuntosYCanjesServicioTest` ahora tiene seis pruebas, incluida la concurrencia de dos canjes con puntos justos. La fase 7 queda completada.
 
 ## Fase 8. Reportes y entrega
 
-- [ ] Confirmar el listado exacto de reportes obligatorios del enunciado.
-- [ ] Definir consultas y filtros de reportes, considerando estados de pedidos y rangos de fechas.
-- [ ] Crear `ReporteDAO`, `ReporteServicio` y `FormReportes`.
-- [ ] Mostrar reportes en `JTable`; alcance provisional: ventas, inventario y movimientos.
-- [ ] Probar el flujo completo: cliente → abastecimiento → pedido → cobro → puntos → canje → reportes.
-- [ ] Verificar consistencia entre reportes y datos persistidos.
-- [ ] Ejecutar pruebas de integración en un entorno de prueba separado de los datos compartidos del equipo.
+- [ ] Confirmar el listado exacto de reportes obligatorios del enunciado. **El PDF no está en el repositorio; el usuario autorizó avanzar con el alcance provisional ventas, inventario y movimientos.**
+- [x] Definir consultas y filtros de reportes, considerando estados de pedidos y rangos de fechas.
+- [x] Crear `ReporteDAO`, `ReporteServicio` y `FormReportes`.
+- [x] Mostrar reportes en `JTable`; alcance provisional: ventas, inventario y movimientos.
+- [x] Probar el flujo completo: cliente → abastecimiento → pedido → cobro → puntos → canje → reportes. **Prueba aislada H2.**
+- [x] Verificar consistencia entre reportes y datos persistidos. **Pruebas H2 comprueban pedidos, saldo, existencias y tipos de movimiento.**
+- [x] Ejecutar pruebas de integración en un entorno de prueba separado de los datos compartidos del equipo. **H2 en memoria; no escribe en Oracle.**
 - [ ] Comprobar errores de conexión y que la interfaz permanezca utilizable.
 - [ ] Generar y ejecutar el JAR final.
-- [ ] Actualizar README con configuración, ejecución, pruebas y uso de cada módulo.
+- [x] Actualizar README con configuración, ejecución, pruebas y uso de reportes.
 - [ ] Contrastar los entregables con el enunciado y registrar limitaciones pendientes.
 
 Criterio de cierre: flujo completo verificado, reportes confirmados y aplicación ejecutable con documentación suficiente.
+
+Implementación inicial del 2026-10-04: alcance provisional de cuatro vistas tabulares: ventas pagadas/entregadas filtrables por fecha de pedido y estado; inventario de productos filtrable por activo; movimientos de inventario filtrables por fecha y tipo; y movimientos de puntos filtrables por fecha y tipo. Las fechas son inclusivas y aceptan límites abiertos; se enlazan como parámetros SQL. `FormReportes` se abre desde el menú Reportes y consulta Oracle en segundo plano con una conexión por operación.
+
+Verificación inicial: `ReporteServicioTest` cubre filtros, fechas, estados, existencias y el flujo integrado de cliente, abastecimiento, pedido, cobro, puntos, canje y reportes usando H2 en memoria. La suite actual (`mvn --batch-mode --no-transfer-progress clean test`) terminó con 67 pruebas correctas. La prueba visual, el arranque del JAR y la confirmación del alcance contra el enunciado siguen pendientes.
 
 ## Cómo se verá y correrá la interfaz (Fase 3 en adelante)
 
@@ -286,7 +291,7 @@ Compilar sin ejecutar la aplicación:
 mvn compile
 ```
 
-Ejecutar las 56 pruebas aisladas, sin wallet ni conexión a Oracle:
+Ejecutar las 61 pruebas aisladas, sin wallet ni conexión a Oracle:
 
 ```bash
 mvn test
@@ -338,6 +343,9 @@ Ambas integraciones usan datos temporales únicos y ejecutan su limpieza al fina
 
 | Fecha | Fase / actividad | Trabajo realizado | Archivos afectados | Verificación / evidencia | Pendientes |
 |---|---|---|---|---|---|
+| 2026-10-04 | Correcciones de fase 7 e inicio de fase 8 | Se serializaron las consultas de historial; se probó rollback después de una escritura; se implementaron consultas y pantalla de reportes provisionales | `FormPuntosYCanjes.java`, `PuntosYCanjesServicioTest.java`, DAO/servicio/modelo/formulario de reportes, `VentanaPrincipal.java`, `README.md`, `PLAN_IMPLEMENTACION.md` | `mvn clean test`: 67 pruebas, 0 fallos, 0 errores, 0 omitidas; incluye canje con rollback forzado y flujo integral de reportes en H2 | Confirmar reportes exactos con enunciado; revisión visual/Oracle de reportes; generar y ejecutar JAR final |
+| 2026-10-04 | Auditoría de fase 7 en `aaf4761` | Comparación del plan con los DAO, servicio, vista y pruebas del commit | `PLAN_IMPLEMENTACION.md` | `mvn --batch-mode --no-transfer-progress clean test`: 61 pruebas correctas. Se confirmó que la prueba de stock no fuerza rollback tras escrituras y se detectó que las dos consultas de historial comparten conexión y estado de tarea | Serializar/aislar las cargas de historiales y añadir una prueba de rollback después de una escritura; fase 7 queda en curso |
+| 2026-10-04 | Auditoría de fase 6 tras integrar fase 7 | Se revisaron servicio, bloqueo/concurrencia, UI, comprobante, pruebas y seguimiento | `PLAN_IMPLEMENTACION.md` | `mvn --batch-mode --no-transfer-progress test`: 61 pruebas, 0 fallos, 0 errores, 0 omitidas; 16 pruebas de cobro. El usuario había confirmado la verificación manual y contra Oracle el 2026-09-30 | No se encontraron defectos funcionales bloqueantes; se corrigieron los conteos y el resumen general desactualizados |
 | 2026-09-30 | Cierre de fase 6 | Se registró el resultado de la validación del flujo completo de cobro en Oracle realizada por el usuario | `PLAN_IMPLEMENTACION.md`, `README.md` | El usuario confirmó cobro y comprobante persistidos tras reconectar, junto con estado, inventario y puntos; confirmó además rechazo y stock insuficiente sin cambios parciales. Suite aislada previa: 56 pruebas correctas | Fase 1 y fases 7–8 siguen pendientes |
 | 2026-09-30 | Corrección de fase 5 e implementación de fase 6 | Integridad de fase 5; formularios asíncronos; cobro atómico, comprobantes, entrega y protección concurrente | Servicios y DAO de pedidos/ventas/menús; formularios; modelo de comprobante; pruebas; README y plan | Suite final: 56 pruebas correctas; Maven package genera el JAR. Pruebas aisladas con el DDL en H2, reconexión y dos conexiones concurrentes | Usuario confirmó apertura y carga de datos de las pantallas en Oracle. Pendiente cobro controlado y comprobar todos sus efectos tras reconectar; regularización histórica del inventario inicial permanece en fase 1 |
 | 2026-09-30 | Auditoría de fase 5 | Revisión de servicio, DAO, formularios, navegación y cobertura; se corrigió el cierre prematuro de la fase | `PLAN_IMPLEMENTACION.md` | `mvn --batch-mode --no-transfer-progress test`: 29 pruebas, 0 fallos, 0 errores, 0 omitidas; cinco pruebas de pedidos. Hallazgos funcionales obtenidos por revisión estática; sin escrituras en Oracle | Corregir atomicidad y coherencia cabecera/detalle, completar pruebas de pedidos mixtos y rollback, resolver concurrencia de anulación y ciclo de vida de formularios antes de fase 6 |

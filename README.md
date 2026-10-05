@@ -73,6 +73,7 @@ Se abrirá la ventana principal de Swing. La navegación disponible es:
 - **Pedidos → Nuevo pedido**.
 - **Pedidos → Pedidos pendientes**.
 - **Pedidos → Cobro y comprobantes**.
+- **Reportes → Consultar reportes**.
 
 ### Pedidos y cobro
 
@@ -85,6 +86,12 @@ Los precios y puntos de un pedido confirmado se conservan aunque cambie el preci
 
 La tarjeta es una simulación y no solicita datos bancarios. El esquema no requiere migraciones: `referencia_pago` guarda el importe recibido para efectivo o una referencia `SIM-` para tarjeta. El comprobante identifica los ítems por sus IDs y muestra la fecha del pedido. Las pruebas automatizadas usan H2; además, se verificó en Oracle el flujo de cobro, su persistencia tras reconectar, el rechazo y la falta de stock sin cambios parciales. La regularización del inventario histórico inicial sigue registrada en la fase 1 del plan.
 
+### Reportes
+
+La pantalla **Reportes → Consultar reportes** ofrece el alcance provisional de ventas pagadas/entregadas, inventario de productos, movimientos de inventario y movimientos de puntos. Ventas y movimientos aceptan un rango de fechas inclusivo y filtros por estado o tipo; las fechas se escriben como `AAAA-MM-DD` y se pueden dejar vacías para consultar todo el historial. Inventario permite ver todos los productos o filtrar activos/inactivos. Las tablas permiten ordenar por columna.
+
+Los reportes reflejan los datos guardados en Oracle. La suite prueba en H2 las consultas, filtros y el flujo cliente → abastecimiento → pedido → cobro → puntos → canje → reportes. El listado definitivo de reportes sigue pendiente de contrastarse con el PDF del enunciado.
+
 ### Comandos de desarrollo y verificación
 
 | Objetivo | Comando | ¿Requiere Oracle? |
@@ -95,7 +102,7 @@ La tarjeta es una simulación y no solicita datos bancarios. El esquema no requi
 | Generar el JAR ejecutable y ejecutar pruebas | `mvn package` | No |
 | Ejecutar el JAR generado | `java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar` | La ventana principal no; los formularios con datos sí |
 
-La suite normal utiliza H2 en memoria para probar persistencia y transacciones sin modificar Oracle. El resultado verificado actualmente es de 56 pruebas sin fallos, incluyendo rollback y cobros concurrentes con conexiones independientes:
+La suite normal utiliza H2 en memoria para probar persistencia, reportes y transacciones sin modificar Oracle. El resultado verificado actualmente es de 67 pruebas sin fallos, incluyendo rollback forzado, flujo integral de reportes y operaciones concurrentes con conexiones independientes:
 
 ```bash
 mvn --batch-mode --no-transfer-progress test

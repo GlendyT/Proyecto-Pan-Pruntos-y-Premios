@@ -89,7 +89,7 @@ Spring Security manejará la sesión con cookie `HttpOnly`, `Secure` en producci
 |---|---|---|:---:|:---:|
 | **0. Datos y acceso** | Confirmar correos utilizables, definir proceso de verificación, proveedor de correo y tratamiento de clientes sin email. Inspeccionar la Autonomous Database existente: región, endpoint y ACL/VCN. | Flujo de identidad aprobado y conectividad objetivo determinada. Bloqueante para publicar a clientes. | 2–4 h | **Completada** |
 | **1. Diseño y migración aditiva** | Especificar tabla de tokens, verificación de correo, expiración, sesión, límites, privilegios y secretos. Respaldar/validar el esquema actual y preparar solo cambios aditivos compatibles; no ejecutar DDL inicial ni datos semilla sobre la base existente. | Migración revisable y reversible en entorno de prueba, sin reemplazar ni borrar los datos actuales. | 3–5 h | **Completada** |
-| **2. API Spring Boot local** | Añadir starters/BOM sin reemplazar el parent Maven ni romper Shade; crear `ApiApplication`, configuración Oracle/Hikari, health y manejo de errores. Separar el arranque de Swing. | API inicia localmente; Swing sigue usando `Main` y su JAR. | 6–10 h | Pendiente |
+| **2. API Spring Boot local** | Añadir starters/BOM sin reemplazar el parent Maven ni romper Shade; crear `ApiApplication`, configuración Oracle/Hikari, health y manejo de errores. Separar el arranque de Swing. | API inicia localmente; Swing sigue usando `Main` y su JAR. | 6–10 h | **Completada** |
 | **3. Autenticación** | Implementar solicitud, envío, consumo de token, sesión/logout, CSRF, límites y mensajes anti-enumeración. | Solo correos verificados inician sesión; token expira y no se reutiliza. | 10–16 h | Pendiente |
 | **4. API de puntos** | Implementar `/me`, saldo y movimientos paginados; vincular principal Spring Security con `id_cliente`. | Imposible consultar a otro cliente cambiando ID/parámetros. | 4–6 h | Pendiente |
 | **5. Portal Next.js** | Crear `frontend/` con Next.js App Router + React + TypeScript; vistas adaptables y llamadas `/api/v1/...`; estados de espera, error y sesión cerrada. | Portal funcional en desarrollo consumiendo API local. | 10–16 h | Pendiente |
@@ -98,19 +98,21 @@ Spring Security manejará la sesión con cookie `HttpOnly`, `Secure` en producci
 | **8. Publicar frontend Vercel** | Importar repositorio Git; configurar raíz `frontend/`, framework Next.js, Node compatible (mínimo documentado actualmente 20.9), variables por entorno y rewrite `/api/*` al backend OCI. | Vercel genera URL de vista previa y producción; llamadas autenticadas llegan a OCI. | 3–5 h | Pendiente |
 | **9. Seguridad y aceptación** | Validar correo desconocido, token expirado/reutilizado, CSRF, aislamiento entre clientes, cookies, no-cache, rate limits, acceso de red, logs y compatibilidad Swing. | Criterios de aceptación completos y URL lista para compartir. | 6–10 h | Pendiente |
 
-### Evidencia y entregables de las Fases 0 y 1 (Completadas):
-- **Fase 0 (Datos y acceso):** Flujo de identidad y acceso acordado. Las 5 decisiones de la fase quedaron resueltas:
-  - **Correos utilizables:** se reemplazará el correo de prueba falso del cliente `CLI001` por `elizabethtzaj@gmail.com`, un correo real controlado por el equipo, para poder probar el enlace de acceso de extremo a extremo.
-  - **Proceso de verificación:** simplificado para la demo — el equipo marcará `email_verificado = 'S'` manualmente en los clientes de prueba con correo real, en vez de construir un flujo de verificación por correo aparte.
-  - **Proveedor de correo:** Gmail, usando una contraseña de aplicación (requiere verificación en dos pasos activada en la cuenta). La contraseña se guardará únicamente en `.env` local, nunca en el repositorio.
-  - **Tratamiento de clientes sin correo:** sin correo registrado, el cliente no tiene acceso al portal web; debe solicitar al cajero que se lo agregue desde Swing.
-  - **Autonomous Database — región y endpoint:** confirmado en la consola de OCI (pestaña Network de la instancia). Región `MX-QUERETARO-1`. Tipo de acceso: *"Allow secure access from everywhere"* (endpoint público), *Access control list: Disabled*, *Mutual TLS (mTLS) authentication: Required*. No se necesitará configurar VCN, peering ni ACL por IP para que el futuro servidor de la API se conecte; bastará con una copia del wallet, igual que usa Swing hoy.
-  - **Pendiente de ejecución (no de decisión):** ni el `UPDATE` del correo real ni el script `sql/auth_tokens_up.sql` se han corrido todavía contra la base de datos Oracle real — todo lo anterior son decisiones confirmadas, la ejecución queda para cuando se retome el trabajo de Fase 1/2.
-- **Especificación técnica:** Documento de diseño arquitectónico y seguridad en [`docs/diseno_autenticacion_tokens.md`](docs/diseno_autenticacion_tokens.md). Detalla estructura de `cliente_token_acceso`, hashing SHA-256, expiración (15m), consumo univalente atómico, no auto-verificación de correos existentes, sesiones con cookies `HttpOnly`/`Secure`/`SameSite=Lax`, rate limiting y principio de menor privilegio (`APP_PUNTOS_API`).
-- **Migración aditiva (UP):** [`sql/auth_tokens_up.sql`](sql/auth_tokens_up.sql) aplica `ALTER TABLE cliente ADD (...)` y crea `cliente_token_acceso` con índices y restricciones sin alterar datos de producción ni romper la app de escritorio Swing.
-- **Reversión limpia (DOWN):** [`sql/auth_tokens_down.sql`](sql/auth_tokens_down.sql) permite revertir completamente la migración sin pérdida de los registros de negocio previos.
-- **Script de verificación en Oracle:** [`sql/auth_tokens_verificar.sql`](sql/auth_tokens_verificar.sql) bloque PL/SQL que valida 9 comprobaciones contra el catálogo de Oracle (`USER_TABLES`, `USER_TAB_COLS`, `USER_CONSTRAINTS`, etc.).
-- **Pruebas automatizadas de compatibilidad:** [`ClienteTokenAccesoCompatibilidadTest.java`](src/test/java/com/panpuntospremios/dao/ClienteTokenAccesoCompatibilidadTest.java) ejecuta 3 casos de prueba en H2 Oracle mode: compatibilidad con `ClienteDAOImpl` y datos previos, ciclo de vida/consumo único de tokens, y reversibilidad down. Verificado con `BUILD SUCCESS` (70 pruebas totales en el proyecto).
+### Evidencia y entregables de las Fases 0, 1 y 2 (Completadas):
+- **Fase 0 (Datos y acceso):** Flujo de identidad y acceso acordado. Las 5 decisiones de la fase quedaron resueltas (correos reales de prueba, verificación manual para demo, proveedor Gmail con app password, tratamiento sin correo y endpoint OCI público con mTLS).
+- **Fase 1 (Diseño y migración aditiva):**
+  - Migración UP: [`sql/auth_tokens_up.sql`](sql/auth_tokens_up.sql).
+  - Migración DOWN: [`sql/auth_tokens_down.sql`](sql/auth_tokens_down.sql).
+  - Verificación PL/SQL: [`sql/auth_tokens_verificar.sql`](sql/auth_tokens_verificar.sql).
+  - Pruebas de compatibilidad: [`ClienteTokenAccesoCompatibilidadTest.java`](src/test/java/com/panpuntospremios/dao/ClienteTokenAccesoCompatibilidadTest.java).
+- **Fase 2 (API Spring Boot local):**
+  - **Dependencias Maven:** Integración limpia mediante `dependencyManagement` (`spring-boot-dependencies:3.3.4`), starters de Web, Validation, Actuator, JDBC y Test sin alterar parent Maven ni romper `maven-shade-plugin`.
+  - **Coexistencia y perfiles de ejecución:** Swing mantiene su ejecución por defecto con `com.panpuntospremios.Main` (`mvn compile exec:java`) y su JAR sombreado (`java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar`). La API cuenta con su perfil independiente (`mvn compile exec:java -Pbackend`).
+  - **Arranque independiente:** [`ApiApplication.java`](src/main/java/com/panpuntospremios/api/ApiApplication.java) carga variables de entorno desde `.env` local en propiedades del sistema e inicializa Spring Boot en puerto 8080.
+  - **Configuración de base de datos y pool acotado:** [`application.properties`](src/main/resources/application.properties) configura HikariCP con `maximum-pool-size=5`, `minimum-idle=1`, timeouts acotados y compatibilidad transparente con Oracle y H2.
+  - **Endpoint de salud:** [`HealthController.java`](src/main/java/com/panpuntospremios/api/controller/HealthController.java) expone `GET /api/v1/health` retornando estado del servicio y validando conectividad a la base de datos sin filtrar secretos.
+  - **Manejo global de errores:** [`GlobalExceptionHandler.java`](src/main/java/com/panpuntospremios/api/excepcion/GlobalExceptionHandler.java) y [`ErrorRespuestaDTO.java`](src/main/java/com/panpuntospremios/api/dto/ErrorRespuestaDTO.java) capturan excepciones del negocio (`ValidacionException`, `StockInsuficienteException`, `PuntosInsuficientesException`, `PagoRechazadoException`), validaciones de request y `SQLException` (ocultando detalles sensibles).
+  - **Pruebas automatizadas:** [`ApiApplicationTest.java`](src/test/java/com/panpuntospremios/api/ApiApplicationTest.java) verifica carga del contexto, configuración del pool Hikari, endpoint de salud y respuestas de error. Suite completa: 73 pruebas ejecutadas, 0 fallos (`BUILD SUCCESS`). Embalaje con Shade validado exitosamente.
 
 
 ### Estimación global
@@ -150,10 +152,24 @@ Vercel soporta despliegues Preview y Production, variables por entorno y dominio
 
 ## 7. Maven, conexiones y coexistencia Swing/API
 
+### 7.1 Comandos de ejecución local
+
+Para que cualquier integrante del equipo o revisor pueda ejecutar ambas aplicaciones sin confusiones:
+
+| Objetivo | Comando | ¿Qué hace? |
+|---|---|---|
+| **Abrir aplicación de escritorio (Swing)** | `mvn compile exec:java` | Arranca la ventana gráfica de escritorio tradicional (`com.panpuntospremios.Main`). |
+| **Iniciar servidor web (API Spring Boot)** | `mvn compile exec:java -Pbackend` | Arranca el backend REST en `http://localhost:8080` (`com.panpuntospremios.api.ApiApplication`). |
+| **Verificar salud en el navegador** | Abrir `http://localhost:8080/api/v1/health` | Muestra estado `UP` del servicio y de la base de datos en JSON. |
+| **Ejecutar JAR de escritorio empaquetado** | `java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar` | Corre el JAR sombreado generado por `maven-shade-plugin`. |
+| **Ejecutar toda la suite de pruebas** | `mvn test` | Corre las 73 pruebas automatizadas de escritorio y API. |
+
+### 7.2 Reglas de coexistencia y base de datos
+
 - Importar BOM Spring Boot desde `dependencyManagement`; no cambiar el parent Maven existente sin necesidad.
 - Preservar `maven-shade-plugin` y la clase principal `com.panpuntospremios.Main`. No vincular `spring-boot:repackage` al ciclo `package` compartido hasta separar perfiles de empaquetado.
-- Iniciar `ApiApplication` con profile/goal propio o desde IDE; documentar ambos comandos.
-- HikariCP proporciona conexiones acotadas. Los DAO actuales reciben `Connection` por constructor y algunos servicios controlan transacciones: no compartir una conexión singleton entre solicitudes. Delimitar cada operación y devolver conexiones con autoCommit correcto, rollback y `try-with-resources`.
+- Iniciar `ApiApplication` con el perfil `backend` (`-Pbackend`) o desde el IDE ejecutando su método `main`.
+- HikariCP proporciona conexiones acotadas (`maximum-pool-size=5`). Los DAO actuales reciben `Connection` por constructor y algunos servicios controlan transacciones: no compartir una conexión singleton entre solicitudes. Delimitar cada operación y devolver conexiones con autoCommit correcto, rollback y `try-with-resources`.
 - No reimplementar reglas de puntos en controladores. Reutilizar servicios existentes cuando su transacción y cierre sean adecuados; añadir método explícito y seguro de saldo si hace falta.
 - No conservar pool/URL/wallet/contraseñas dentro de la imagen Docker ni en Git.
 

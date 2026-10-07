@@ -7,6 +7,7 @@ import com.panpuntospremios.excepcion.StockInsuficienteException;
 import com.panpuntospremios.excepcion.ValidacionException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -19,6 +20,26 @@ import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(LimitePeticionesException.class)
+    public ResponseEntity<ErrorRespuestaDTO> manejarLimitePeticiones(LimitePeticionesException ex) {
+        ErrorRespuestaDTO error = new ErrorRespuestaDTO(
+            HttpStatus.TOO_MANY_REQUESTS.value(),
+            HttpStatus.TOO_MANY_REQUESTS.getReasonPhrase(),
+            ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS).body(error);
+    }
+
+    @ExceptionHandler(BadCredentialsException.class)
+    public ResponseEntity<ErrorRespuestaDTO> manejarBadCredentials(BadCredentialsException ex) {
+        ErrorRespuestaDTO error = new ErrorRespuestaDTO(
+            HttpStatus.UNAUTHORIZED.value(),
+            HttpStatus.UNAUTHORIZED.getReasonPhrase(),
+            ex.getMessage()
+        );
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(error);
+    }
 
     @ExceptionHandler(ValidacionException.class)
     public ResponseEntity<ErrorRespuestaDTO> manejarValidacion(ValidacionException ex) {

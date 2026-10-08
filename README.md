@@ -1,9 +1,23 @@
 # Pan, Puntos y Premios
 
-Sistema de gestión de pedidos y fidelización para un restaurante de sándwiches. Java + Swing + Oracle Cloud (Autonomous Database).
+Sistema de gestión de pedidos y fidelización para un restaurante de sándwiches. El repositorio contiene la aplicación de escritorio Java/Swing y un portal web de clientes (Next.js) respaldado por una API Spring Boot y Oracle Autonomous Database.
 
-Documentación completa del diseño (ER, DDL, clases, casos de uso): [`diseno_pan_puntos_premios.md`](diseno_pan_puntos_premios.md).
-Enunciado original: [`Proyecto_Pan_Puntos_y_Premios.pdf`](Proyecto_Pan_Puntos_y_Premios.pdf).
+## Portal web de clientes y despliegue
+
+El portal permite a cada cliente solicitar acceso por correo y consultar su propio saldo e historial de puntos. No ofrece funciones de cajero ni administración.
+
+- **Estado:** API desplegada en OCI y accesible por HTTPS; certificado real y renovación automática configurados. El frontend Next.js todavía no se ha publicado en Vercel.
+- **Continuar desde aquí:** consulta [`PLAN_API_SPRING_BOOT.md`](PLAN_API_SPRING_BOOT.md) para el plan por fases y [`docs/GUIA_DESPLIEGUE_OCI_VERCEL.md`](docs/GUIA_DESPLIEGUE_OCI_VERCEL.md) para el registro reproducible de la configuración, el traspaso a otro desarrollador, la preparación local y los siguientes pasos de Vercel.
+- **API actual:** `https://163.192.144.19/api/v1/health` (solo health; el acceso a puntos requiere sesión de cliente).
+- **Frontend local:** desde `frontend/`, ejecutar `pnpm install --frozen-lockfile` y `pnpm dev`. La guía de despliegue explica cómo configurar el proxy hacia la API.
+
+No reutilices ni solicites por chat claves privadas, contraseñas de base de datos, secretos de EmailJS ni contenido del wallet. Solicita acceso y secretos al responsable por un canal privado; las plantillas del repositorio contienen solo marcadores.
+
+---
+
+## Aplicación de escritorio Swing
+
+La aplicación original de escritorio sigue disponible y es independiente del portal web. Para diseño y funcionalidad consulta [`diseno_pan_puntos_premios.md`](diseno_pan_puntos_premios.md). El enunciado original se encuentra en [`Proyecto_Pan_Puntos_y_Premios.pdf`](Proyecto_Pan_Puntos_y_Premios.pdf).
 
 ---
 
@@ -13,6 +27,8 @@ Enunciado original: [`Proyecto_Pan_Puntos_y_Premios.pdf`](Proyecto_Pan_Puntos_y_
 |---|---|---|
 | Java (JDK) | 17 o superior | El proyecto genera bytecode compatible con Java 17; `java -version` para verificar |
 | Maven | 3.9.16 | `mvn -version` para verificar |
+| Node.js | 20.9 o superior | Requerido por Next.js 16 para el portal web |
+| pnpm | 10.19.0 | Versión declarada por `frontend/package.json`; instalar con Corepack o `npm install --global pnpm@10.19.0` |
 
 ### Si no tienes Maven instalado
 
@@ -27,30 +43,28 @@ Alternativa sin instalar nada aparte: abrir el proyecto con **VS Code** (extensi
 
 ## 2. Base de datos: Oracle Cloud Autonomous Database
 
-Este proyecto usa una única instancia de **Oracle Autonomous Database (Always Free)** en Oracle Cloud, compartida por todo el equipo — no cada quien crea la suya. La conexión requiere dos cosas que **no están en este repositorio** (por seguridad) y que debes pedirle a quien administra la base de datos:
-
-1. **El wallet** (carpeta con `tnsnames.ora`, `cwallet.sso`, `ojdbc.properties`, etc.) — se comparte por un canal privado (Drive, USB, chat), nunca por git.
-2. **La contraseña del usuario `ADMIN`.**
+El proyecto usa una única instancia existente de **Oracle Autonomous Database** compartida por el equipo. No crees una base nueva para seguir el portal web. La conexión requiere el wallet y una cuenta Oracle autorizada, que deben solicitarse al responsable por un canal privado. El portal usa la cuenta de servicio `APP_PUNTOS_API` sobre el esquema `ADMIN`; el usuario de escritorio Swing puede tener necesidades de privilegios diferentes.
 
 ### 2.1 Configurar tu conexión local
 
-1. Pide el wallet y la contraseña a quien administra la base.
+1. Pide el wallet y las credenciales de la cuenta apropiada para la aplicación que desarrollarás.
 2. Descomprime el wallet en cualquier carpeta de tu máquina, **fuera de este repositorio** (ej. `C:\Users\<tu_usuario>\oracle-wallet\`).
 3. Copia `.env.example` a un nuevo archivo llamado `.env` (en la raíz del proyecto) y complétalo:
 
    ```
-   DB_URL=jdbc:oracle:thin:@panpuntospremios_high?TNS_ADMIN=C:/ruta/a/tu/wallet
-   DB_USER=ADMIN
-   DB_PASSWORD=la_contraseña_compartida
+   DB_URL=jdbc:oracle:thin:@panpuntospremios_low?TNS_ADMIN=C:/ruta/a/tu/wallet
+   DB_USER=APP_PUNTOS_API
+   DB_PASSWORD=<secreto-proporcionado-privadamente>
+   DB_SCHEMA=ADMIN
    ```
 
-   El alias `panpuntospremios_high` viene definido dentro del `tnsnames.ora` del wallet; no lo cambies.
+   El alias usado actualmente es `panpuntospremios_low`, definido dentro del `tnsnames.ora` del wallet. Si el wallet recibido usa otro alias, conserva el alias que realmente aparezca allí.
 
 `.env` ya está en `.gitignore`: es local a tu máquina y nunca se sube al repositorio.
 
-### 2.2 Crear las tablas (una sola vez por base de datos, no por persona)
+### 2.2 Esquema existente
 
-Ejecuta [`sql/ddl.sql`](sql/ddl.sql) contra la base usando **Database Actions** (editor SQL en el navegador, disponible desde la consola de Oracle Cloud) o **SQL Developer** / VS Code con extensión Oracle, apuntando al mismo wallet.
+El esquema compartido ya tiene las tablas de la aplicación y la migración aditiva de autenticación aplicada y verificada. **No ejecutes `sql/ddl.sql` ni `sql/auth_tokens_up.sql` en esta base compartida**; esos scripts no son pasos de alta por desarrollador. Consulta [`docs/GUIA_DESPLIEGUE_OCI_VERCEL.md`](docs/GUIA_DESPLIEGUE_OCI_VERCEL.md) para el acceso local de API, y solicita autorización antes de ejecutar cualquier SQL administrativo. `sql/ddl.sql` aplica solo al crear una base de datos aislada nueva, fuera del flujo de continuidad del portal.
 
 ---
 
@@ -102,7 +116,7 @@ Los reportes reflejan los datos guardados en Oracle. La suite prueba en H2 las c
 | Generar el JAR ejecutable y ejecutar pruebas | `mvn package` | No |
 | Ejecutar el JAR generado | `java -jar target/pan-puntos-premios-1.0-SNAPSHOT.jar` | La ventana principal no; los formularios con datos sí |
 
-La suite normal utiliza H2 en memoria para probar persistencia, reportes y transacciones sin modificar Oracle. El resultado verificado actualmente es de 67 pruebas sin fallos, incluyendo rollback forzado, flujo integral de reportes y operaciones concurrentes con conexiones independientes:
+La suite normal utiliza H2 en memoria para probar persistencia, reportes y transacciones sin modificar Oracle. Ejecuta la suite con:
 
 ```bash
 mvn --batch-mode --no-transfer-progress test
@@ -186,6 +200,9 @@ Proyecto-Pan-Pruntos-y-Premios/
 ├── .github/workflows/java-ci.yml      Pruebas de PR dirigidos a development
 ├── sql/ddl.sql                       Script de creación de tablas y datos de prueba
 ├── diseno_pan_puntos_premios.md      Documento de diseño completo
+├── PLAN_API_SPRING_BOOT.md            Plan por fases de API y portal de clientes
+├── docs/GUIA_DESPLIEGUE_OCI_VERCEL.md Traspaso y guía de despliegue vigente
+├── frontend/                          Portal cliente Next.js + React + TypeScript
 ├── Proyecto_Pan_Puntos_y_Premios.pdf Enunciado original del proyecto
 └── src/
     ├── main/java/com/panpuntospremios/
@@ -194,6 +211,7 @@ Proyecto-Pan-Pruntos-y-Premios/
     │   ├── modelo/                   Entidades y objetos del negocio
     │   ├── dao/                      Acceso JDBC a Oracle
     │   ├── servicio/                 Reglas y operaciones del negocio
+    │   ├── api/                      API Spring Boot, seguridad y endpoints REST
     │   └── util/                     Conexión JDBC y manejo de transacciones
     └── test/java/com/panpuntospremios/ Pruebas aisladas e integraciones Oracle opcionales
 ```
@@ -204,6 +222,12 @@ Proyecto-Pan-Pruntos-y-Premios/
 
 | Dependencia | Para qué sirve |
 |---|---|
+| `org.springframework.boot:spring-boot-starter-web` | Servidor REST de la API Spring Boot |
+| `org.springframework.boot:spring-boot-starter-security` | Sesiones de cliente, autenticación y CSRF |
+| `org.springframework.boot:spring-boot-starter-jdbc` | Acceso relacional de la API |
+| `org.springframework.boot:spring-boot-starter-validation` | Validación de solicitudes REST |
+| `org.springframework.boot:spring-boot-starter-actuator` | Health y diagnóstico mínimo del backend |
+| `org.springframework.boot:spring-boot-starter-mail` | Transporte SMTP alternativo |
 | `com.oracle.database.jdbc:ojdbc11` | Driver JDBC para conectarse a Oracle |
 | `com.oracle.database.security:oraclepki` | Permite al driver leer el `cwallet.sso` del wallet (autenticación SSO) |
 | `com.oracle.database.security:osdt_core` / `osdt_cert` | Librerías de soporte para `oraclepki` |
@@ -219,4 +243,4 @@ Proyecto-Pan-Pruntos-y-Premios/
 
 - Nunca subas `.env` ni la carpeta del wallet a git — ambos están (o deben estar) en `.gitignore`.
 - Si el wallet se rota (botón "Rotate wallet" en la consola de Oracle Cloud), el wallet anterior deja de funcionar y hay que redistribuir el nuevo a todo el equipo.
-- La contraseña de `ADMIN` es compartida por el equipo; si sospechas que se filtró, resetéala desde la consola de Oracle Cloud (Database → More actions → Administrator password → Reset) y avisa a todos.
+- No uses `ADMIN` como cuenta de conexión del portal. La API utiliza `APP_PUNTOS_API`; solicita sus credenciales al responsable y rota cualquier secreto que se haya expuesto. El acceso de Swing puede tener una cuenta y permisos distintos.

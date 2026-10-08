@@ -60,6 +60,8 @@ CREATE INDEX idx_token_limpieza ON cliente_token_acceso (fecha_expiracion, fecha
 --
 --    Privilegios estrictos requeridos por la API:
 --    GRANT SELECT ON cliente TO app_puntos_api;
+--    La API solo actualiza estas dos columnas al verificar el correo con el primer enlace:
+--    GRANT UPDATE (email_verificado, fecha_verificacion_email) ON cliente TO app_puntos_api;
 --    GRANT SELECT, INSERT, UPDATE ON cliente_token_acceso TO app_puntos_api;
 --    GRANT SELECT ON movimiento_puntos TO app_puntos_api;
 -- ============================================================================

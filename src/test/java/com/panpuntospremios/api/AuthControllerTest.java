@@ -150,7 +150,7 @@ class AuthControllerTest {
     }
 
     @Test
-    void testAntiEnumeracionConCorreoNoVerificadoDevuelveMismoMensajeYNoGeneraToken() throws Exception {
+    void testPrimerAccesoConCorreoNoVerificadoGeneraTokenYDevuelveMensajeGenerico() throws Exception {
         SolicitudAccesoDTO dto = new SolicitudAccesoDTO("noverificado@panpuntos.com");
 
         mockMvc.perform(post("/api/v1/auth/access-requests")
@@ -163,7 +163,7 @@ class AuthControllerTest {
              Statement st = con.createStatement();
              ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM cliente_token_acceso")) {
             assertTrue(rs.next());
-            assertEquals(0, rs.getInt(1), "No debe generarse token para correos no verificados");
+            assertEquals(1, rs.getInt(1), "El primer acceso debe generar un enlace para verificar el correo");
         }
     }
 
@@ -212,6 +212,40 @@ class AuthControllerTest {
             .andExpect(status().isUnauthorized())
             .andExpect(jsonPath("$.status").value(401))
             .andExpect(jsonPath("$.mensaje").value("El enlace de acceso es inválido o ha expirado."));
+    }
+
+    @Test
+    void testPrimerConsumoVerificaCorreoDeClienteNoVerificado() throws Exception {
+        String rawToken = "primer-acceso-cliente-no-verificado-123456";
+        String tokenHash = AuthService.calcularSha256(rawToken);
+
+        try (Connection con = dataSource.getConnection();
+             Statement st = con.createStatement()) {
+            st.execute(String.format("""
+                INSERT INTO cliente_token_acceso (id_cliente, token_hash, fecha_creacion, fecha_expiracion)
+                VALUES (2, '%s', CURRENT_TIMESTAMP, TIMESTAMPADD(MINUTE, 15, CURRENT_TIMESTAMP))
+            """, tokenHash));
+        }
+
+        mockMvc.perform(post("/api/v1/auth/consume")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(new ConsumirTokenDTO(rawToken))))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.mensaje").value("Sesión iniciada correctamente"))
+            .andExpect(jsonPath("$.identificador").value("CLI-NO-VERIF"));
+
+        try (Connection con = dataSource.getConnection();
+             Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery("""
+                 SELECT email_verificado, fecha_verificacion_email
+                   FROM cliente
+                  WHERE identificador = 'CLI-NO-VERIF'
+             """)) {
+            assertTrue(rs.next());
+            assertEquals("S", rs.getString("email_verificado"));
+            assertTrue(rs.getTimestamp("fecha_verificacion_email") != null,
+                "Debe registrarse la fecha de verificación al consumir el primer enlace");
+        }
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.panpuntospremios.api.excepcion;
 
 import com.panpuntospremios.api.dto.ErrorRespuestaDTO;
+import com.panpuntospremios.api.servicio.PuntosConsultaService;
 import com.panpuntospremios.excepcion.PagoRechazadoException;
 import com.panpuntospremios.excepcion.PuntosInsuficientesException;
 import com.panpuntospremios.excepcion.StockInsuficienteException;
@@ -102,6 +103,17 @@ public class GlobalExceptionHandler {
             HttpStatus.NOT_FOUND.value(),
             HttpStatus.NOT_FOUND.getReasonPhrase(),
             "El recurso solicitado no existe"
+        );
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
+    }
+
+    @ExceptionHandler(PuntosConsultaService.ClienteNoDisponibleException.class)
+    public ResponseEntity<ErrorRespuestaDTO> manejarClienteNoDisponible(
+            PuntosConsultaService.ClienteNoDisponibleException ex) {
+        ErrorRespuestaDTO error = new ErrorRespuestaDTO(
+            HttpStatus.NOT_FOUND.value(),
+            HttpStatus.NOT_FOUND.getReasonPhrase(),
+            "No se encontró un cliente activo para la sesión"
         );
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(error);
     }

@@ -1,6 +1,7 @@
 package com.panpuntospremios.api.dao;
 
 import com.panpuntospremios.api.modelo.ClienteAuth;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Repository;
 
 import javax.sql.DataSource;
@@ -11,18 +12,22 @@ import java.util.Optional;
 public class AuthDAOImpl implements AuthDAO {
 
     private final DataSource dataSource;
+    private final String prefijoEsquema;
 
-    public AuthDAOImpl(DataSource dataSource) {
+    public AuthDAOImpl(
+            DataSource dataSource,
+            @Value("${app.database.schema:}") String esquema) {
         this.dataSource = dataSource;
+        this.prefijoEsquema = PrefijoEsquemaSQL.desde(esquema);
     }
 
     @Override
     public Optional<ClienteAuth> buscarClientePorEmail(String email) {
         String sql = """
             SELECT id_cliente, identificador, nombre, telefono, email, saldo_puntos, activo, email_verificado
-              FROM cliente
+              FROM %scliente
              WHERE LOWER(email) = LOWER(?)
-        """;
+        """.formatted(prefijoEsquema);
         try (Connection con = dataSource.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setString(1, email.trim());
@@ -41,9 +46,9 @@ public class AuthDAOImpl implements AuthDAO {
     public Optional<ClienteAuth> buscarClientePorId(int idCliente) {
         String sql = """
             SELECT id_cliente, identificador, nombre, telefono, email, saldo_puntos, activo, email_verificado
-              FROM cliente
+              FROM %scliente
              WHERE id_cliente = ?
-        """;
+        """.formatted(prefijoEsquema);
         try (Connection con = dataSource.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, idCliente);
@@ -61,35 +66,39 @@ public class AuthDAOImpl implements AuthDAO {
     @Override
     public boolean superaLimiteSolicitudes(int idCliente, int cooldownSegundos, int ventanaMinutos, int maxSolicitudes) {
         try (Connection con = dataSource.getConnection()) {
-            // 1. Validar Enfriamiento (cooldown): ¿hace cuánto fue la última solicitud?
-            String sqlUltima = "SELECT MAX(fecha_creacion) FROM cliente_token_acceso WHERE id_cliente = ?";
-            try (PreparedStatement ps = con.prepareStatement(sqlUltima)) {
+            // Las columnas son TIMESTAMP sin zona horaria. Guardamos y comparamos UTC
+            // explícitamente para evitar diferencias entre la sesión Oracle y la JVM.
+            String sqlCooldown = """
+                SELECT COUNT(*) FROM %scliente_token_acceso
+                 WHERE id_cliente = ?
+                   AND fecha_creacion >= SYS_EXTRACT_UTC(SYSTIMESTAMP) - NUMTODSINTERVAL(?, 'SECOND')
+            """.formatted(prefijoEsquema);
+            try (PreparedStatement ps = con.prepareStatement(sqlCooldown)) {
                 ps.setInt(1, idCliente);
+                ps.setInt(2, cooldownSegundos);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
-                        Timestamp ultima = rs.getTimestamp(1);
-                        if (ultima != null) {
-                            long diferenciaSegundos = (System.currentTimeMillis() - ultima.getTime()) / 1000;
-                            if (diferenciaSegundos < cooldownSegundos) {
-                                return true; // Supera enfriamiento
-                            }
+                        if (rs.getInt(1) > 0) {
+                            return true;
                         }
                     }
                 }
             }
 
-            // 2. Validar ventana de solicitudes: máximo N solicitudes en X minutos
-            long ventanaMillis = System.currentTimeMillis() - ((long) ventanaMinutos * 60 * 1000);
-            Timestamp inicioVentana = new Timestamp(ventanaMillis);
-            String sqlVentana = "SELECT COUNT(*) FROM cliente_token_acceso WHERE id_cliente = ? AND fecha_creacion >= ?";
+            // Máximo N solicitudes dentro de la ventana calculada por Oracle.
+            String sqlVentana = """
+                SELECT COUNT(*) FROM %scliente_token_acceso
+                 WHERE id_cliente = ?
+                   AND fecha_creacion >= SYS_EXTRACT_UTC(SYSTIMESTAMP) - NUMTODSINTERVAL(?, 'MINUTE')
+            """.formatted(prefijoEsquema);
             try (PreparedStatement ps = con.prepareStatement(sqlVentana)) {
                 ps.setInt(1, idCliente);
-                ps.setTimestamp(2, inicioVentana);
+                ps.setInt(2, ventanaMinutos);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         int count = rs.getInt(1);
                         if (count >= maxSolicitudes) {
-                            return true; // Supera cuota máxima en la ventana
+                            return true;
                         }
                     }
                 }
@@ -101,16 +110,17 @@ public class AuthDAOImpl implements AuthDAO {
     }
 
     @Override
-    public void registrarToken(int idCliente, String tokenHash, Timestamp expiracion, String ip, String userAgent) {
+    public void registrarToken(int idCliente, String tokenHash, int expiracionMinutos, String ip, String userAgent) {
         String sql = """
-            INSERT INTO cliente_token_acceso (id_cliente, token_hash, fecha_creacion, fecha_expiracion, direccion_ip, origen_solicitud)
-            VALUES (?, ?, CURRENT_TIMESTAMP, ?, ?, ?)
-        """;
+            INSERT INTO %scliente_token_acceso (id_cliente, token_hash, fecha_creacion, fecha_expiracion, direccion_ip, origen_solicitud)
+            VALUES (?, ?, SYS_EXTRACT_UTC(SYSTIMESTAMP),
+                    SYS_EXTRACT_UTC(SYSTIMESTAMP) + NUMTODSINTERVAL(?, 'MINUTE'), ?, ?)
+        """.formatted(prefijoEsquema);
         try (Connection con = dataSource.getConnection();
              PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, idCliente);
             ps.setString(2, tokenHash);
-            ps.setTimestamp(3, expiracion);
+            ps.setInt(3, expiracionMinutos);
             ps.setString(4, ip != null && ip.length() > 45 ? ip.substring(0, 45) : ip);
             ps.setString(5, userAgent != null && userAgent.length() > 100 ? userAgent.substring(0, 100) : userAgent);
             ps.executeUpdate();
@@ -122,35 +132,71 @@ public class AuthDAOImpl implements AuthDAO {
     @Override
     public Optional<Integer> consumirToken(String tokenHash) {
         String sqlUpdate = """
-            UPDATE cliente_token_acceso
-               SET fecha_uso = CURRENT_TIMESTAMP
+            UPDATE %scliente_token_acceso
+               SET fecha_uso = SYS_EXTRACT_UTC(SYSTIMESTAMP)
              WHERE token_hash = ?
                AND fecha_uso IS NULL
-               AND fecha_expiracion > CURRENT_TIMESTAMP
-        """;
-        String sqlSelect = "SELECT id_cliente FROM cliente_token_acceso WHERE token_hash = ?";
+               AND fecha_expiracion > SYS_EXTRACT_UTC(SYSTIMESTAMP)
+        """.formatted(prefijoEsquema);
+        String sqlSelect = "SELECT id_cliente FROM " + prefijoEsquema
+            + "cliente_token_acceso WHERE token_hash = ?";
+        String sqlMarcarVerificado = """
+            UPDATE %scliente
+               SET email_verificado = 'S',
+                   fecha_verificacion_email = CASE
+                       WHEN email_verificado = 'S' THEN fecha_verificacion_email
+                       ELSE SYS_EXTRACT_UTC(SYSTIMESTAMP)
+                   END
+             WHERE id_cliente = ?
+               AND activo = 'S'
+        """.formatted(prefijoEsquema);
 
         try (Connection con = dataSource.getConnection()) {
-            try (PreparedStatement ps = con.prepareStatement(sqlUpdate)) {
-                ps.setString(1, tokenHash);
-                int actualizadas = ps.executeUpdate();
-                if (actualizadas == 0) {
-                    return Optional.empty(); // Token inexistente, ya usado o expirado
-                }
-            }
-
-            try (PreparedStatement ps = con.prepareStatement(sqlSelect)) {
-                ps.setString(1, tokenHash);
-                try (ResultSet rs = ps.executeQuery()) {
-                    if (rs.next()) {
-                        return Optional.of(rs.getInt("id_cliente"));
+            con.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = con.prepareStatement(sqlUpdate)) {
+                    ps.setString(1, tokenHash);
+                    int actualizadas = ps.executeUpdate();
+                    if (actualizadas == 0) {
+                        con.rollback();
+                        return Optional.empty(); // Token inexistente, ya usado o expirado
                     }
                 }
+
+                int idCliente;
+                try (PreparedStatement ps = con.prepareStatement(sqlSelect)) {
+                    ps.setString(1, tokenHash);
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (!rs.next()) {
+                            con.rollback();
+                            return Optional.empty();
+                        }
+                        idCliente = rs.getInt("id_cliente");
+                    }
+                }
+
+                try (PreparedStatement ps = con.prepareStatement(sqlMarcarVerificado)) {
+                    ps.setInt(1, idCliente);
+                    if (ps.executeUpdate() != 1) {
+                        // El token valido queda consumido aunque la cuenta ya no este activa.
+                        con.commit();
+                        return Optional.empty(); // Cuenta inactiva o ya no disponible
+                    }
+                }
+
+                con.commit();
+                return Optional.of(idCliente);
+            } catch (SQLException e) {
+                try {
+                    con.rollback();
+                } catch (SQLException rollbackError) {
+                    e.addSuppressed(rollbackError);
+                }
+                throw e;
             }
         } catch (SQLException e) {
-            throw new RuntimeException("Error al consumir token de acceso", e);
+            throw new RuntimeException("Error al consumir el token y verificar el correo", e);
         }
-        return Optional.empty();
     }
 
     private ClienteAuth mapearCliente(ResultSet rs) throws SQLException {

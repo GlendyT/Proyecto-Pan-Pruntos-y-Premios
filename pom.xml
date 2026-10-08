@@ -14,6 +14,7 @@
         <maven.compiler.target>17</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <spring-boot.version>3.3.4</spring-boot.version>
+        <maven.shade.skip>false</maven.shade.skip>
     </properties>
 
     <dependencyManagement>
@@ -115,6 +116,7 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <skip>${maven.shade.skip}</skip>
                             <transformers>
                                 <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
                                     <mainClass>com.panpuntospremios.Main</mainClass>
@@ -138,6 +140,9 @@
     <profiles>
         <profile>
             <id>backend</id>
+            <properties>
+                <maven.shade.skip>true</maven.shade.skip>
+            </properties>
             <build>
                 <plugins>
                     <plugin>
@@ -147,8 +152,35 @@
                             <mainClass>com.panpuntospremios.api.ApiApplication</mainClass>
                         </configuration>
                     </plugin>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <version>${spring-boot.version}</version>
+                        <configuration>
+                            <mainClass>com.panpuntospremios.api.ApiApplication</mainClass>
+                            <classifier>api</classifier>
+                        </configuration>
+                        <executions>
+                            <execution>
+                                <goals>
+                                    <goal>repackage</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
                 </plugins>
             </build>
+        </profile>
+        <profile>
+            <id>local-demo</id>
+            <dependencies>
+                <dependency>
+                    <groupId>com.h2database</groupId>
+                    <artifactId>h2</artifactId>
+                    <version>2.5.250</version>
+                    <scope>runtime</scope>
+                </dependency>
+            </dependencies>
         </profile>
     </profiles>
 </project>

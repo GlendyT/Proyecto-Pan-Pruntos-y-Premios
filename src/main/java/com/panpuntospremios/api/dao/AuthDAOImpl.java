@@ -68,14 +68,17 @@ public class AuthDAOImpl implements AuthDAO {
         try (Connection con = dataSource.getConnection()) {
             // Las columnas son TIMESTAMP sin zona horaria. Guardamos y comparamos UTC
             // explícitamente para evitar diferencias entre la sesión Oracle y la JVM.
+            boolean h2 = esH2(con);
             String sqlCooldown = """
                 SELECT COUNT(*) FROM %scliente_token_acceso
                  WHERE id_cliente = ?
-                   AND fecha_creacion >= SYS_EXTRACT_UTC(SYSTIMESTAMP) - NUMTODSINTERVAL(?, 'SECOND')
-            """.formatted(prefijoEsquema);
+                   AND fecha_creacion >= %s
+            """.formatted(prefijoEsquema, h2
+                    ? "DATEADD('SECOND', ?, CURRENT_TIMESTAMP)"
+                    : "SYS_EXTRACT_UTC(SYSTIMESTAMP) - NUMTODSINTERVAL(?, 'SECOND')");
             try (PreparedStatement ps = con.prepareStatement(sqlCooldown)) {
                 ps.setInt(1, idCliente);
-                ps.setInt(2, cooldownSegundos);
+                ps.setInt(2, h2 ? -cooldownSegundos : cooldownSegundos);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         if (rs.getInt(1) > 0) {
@@ -89,11 +92,13 @@ public class AuthDAOImpl implements AuthDAO {
             String sqlVentana = """
                 SELECT COUNT(*) FROM %scliente_token_acceso
                  WHERE id_cliente = ?
-                   AND fecha_creacion >= SYS_EXTRACT_UTC(SYSTIMESTAMP) - NUMTODSINTERVAL(?, 'MINUTE')
-            """.formatted(prefijoEsquema);
+                   AND fecha_creacion >= %s
+            """.formatted(prefijoEsquema, h2
+                    ? "DATEADD('MINUTE', ?, CURRENT_TIMESTAMP)"
+                    : "SYS_EXTRACT_UTC(SYSTIMESTAMP) - NUMTODSINTERVAL(?, 'MINUTE')");
             try (PreparedStatement ps = con.prepareStatement(sqlVentana)) {
                 ps.setInt(1, idCliente);
-                ps.setInt(2, ventanaMinutos);
+                ps.setInt(2, h2 ? -ventanaMinutos : ventanaMinutos);
                 try (ResultSet rs = ps.executeQuery()) {
                     if (rs.next()) {
                         int count = rs.getInt(1);
@@ -111,45 +116,61 @@ public class AuthDAOImpl implements AuthDAO {
 
     @Override
     public void registrarToken(int idCliente, String tokenHash, int expiracionMinutos, String ip, String userAgent) {
-        String sql = """
-            INSERT INTO %scliente_token_acceso (id_cliente, token_hash, fecha_creacion, fecha_expiracion, direccion_ip, origen_solicitud)
-            VALUES (?, ?, SYS_EXTRACT_UTC(SYSTIMESTAMP),
-                    SYS_EXTRACT_UTC(SYSTIMESTAMP) + NUMTODSINTERVAL(?, 'MINUTE'), ?, ?)
-        """.formatted(prefijoEsquema);
-        try (Connection con = dataSource.getConnection();
-             PreparedStatement ps = con.prepareStatement(sql)) {
+        try (Connection con = dataSource.getConnection()) {
+            boolean h2 = esH2(con);
+            String ahora = h2 ? "CURRENT_TIMESTAMP" : "SYS_EXTRACT_UTC(SYSTIMESTAMP)";
+            String expiracion = h2
+                ? "DATEADD('MINUTE', ?, CURRENT_TIMESTAMP)"
+                : "SYS_EXTRACT_UTC(SYSTIMESTAMP) + NUMTODSINTERVAL(?, 'MINUTE')";
+            String sql = """
+                INSERT INTO %scliente_token_acceso (id_cliente, token_hash, fecha_creacion, fecha_expiracion, direccion_ip, origen_solicitud)
+                VALUES (?, ?, %s, %s, ?, ?)
+            """.formatted(prefijoEsquema, ahora, expiracion);
+            try (PreparedStatement ps = con.prepareStatement(sql)) {
             ps.setInt(1, idCliente);
             ps.setString(2, tokenHash);
             ps.setInt(3, expiracionMinutos);
             ps.setString(4, ip != null && ip.length() > 45 ? ip.substring(0, 45) : ip);
             ps.setString(5, userAgent != null && userAgent.length() > 100 ? userAgent.substring(0, 100) : userAgent);
             ps.executeUpdate();
+            }
         } catch (SQLException e) {
             throw new RuntimeException("Error al registrar token de acceso", e);
         }
     }
 
+    private boolean esH2(Connection con) throws SQLException {
+        return "H2".equalsIgnoreCase(con.getMetaData().getDatabaseProductName());
+    }
+
     @Override
     public Optional<Integer> consumirToken(String tokenHash) {
-        String sqlUpdate = """
-            UPDATE %scliente_token_acceso
-               SET fecha_uso = SYS_EXTRACT_UTC(SYSTIMESTAMP)
-             WHERE token_hash = ?
-               AND fecha_uso IS NULL
-               AND fecha_expiracion > SYS_EXTRACT_UTC(SYSTIMESTAMP)
-        """.formatted(prefijoEsquema);
+        String sqlUpdate;
+        String sqlMarcarVerificado;
+        try (Connection con = dataSource.getConnection()) {
+            String ahora = esH2(con) ? "CURRENT_TIMESTAMP" : "SYS_EXTRACT_UTC(SYSTIMESTAMP)";
+            sqlUpdate = """
+                UPDATE %scliente_token_acceso
+                   SET fecha_uso = %s
+                 WHERE token_hash = ?
+                   AND fecha_uso IS NULL
+                   AND fecha_expiracion > %s
+            """.formatted(prefijoEsquema, ahora, ahora);
+            sqlMarcarVerificado = """
+                UPDATE %scliente
+                   SET email_verificado = 'S',
+                       fecha_verificacion_email = CASE
+                           WHEN email_verificado = 'S' THEN fecha_verificacion_email
+                           ELSE %s
+                       END
+                 WHERE id_cliente = ?
+                   AND activo = 'S'
+            """.formatted(prefijoEsquema, ahora);
+        } catch (SQLException e) {
+            throw new RuntimeException("Error al preparar el consumo del token", e);
+        }
         String sqlSelect = "SELECT id_cliente FROM " + prefijoEsquema
             + "cliente_token_acceso WHERE token_hash = ?";
-        String sqlMarcarVerificado = """
-            UPDATE %scliente
-               SET email_verificado = 'S',
-                   fecha_verificacion_email = CASE
-                       WHEN email_verificado = 'S' THEN fecha_verificacion_email
-                       ELSE SYS_EXTRACT_UTC(SYSTIMESTAMP)
-                   END
-             WHERE id_cliente = ?
-               AND activo = 'S'
-        """.formatted(prefijoEsquema);
 
         try (Connection con = dataSource.getConnection()) {
             con.setAutoCommit(false);

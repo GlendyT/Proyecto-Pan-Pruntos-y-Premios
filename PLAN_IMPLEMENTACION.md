@@ -29,8 +29,6 @@ El esquema local define 10 tablas: `cliente`, `producto`, `menu`, `menu_detalle`
 
 El proyecto ya contiene modelos, enums, excepciones, DAO y servicios para clientes, productos, menús, inventario, pedidos, cobros, fidelización y reportes, además de sus formularios Java Swing. La suite aislada actual contiene 67 pruebas automatizadas; las funciones o procedimientos almacenados siguen sin estar definidos en el SQL revisado.
 
-El PDF del enunciado mencionado en el README no está disponible en la ruta del proyecto. Queda pendiente confirmar los reportes obligatorios y cualquier exigencia específica de PL/SQL.
-
 ## Arquitectura prevista
 
 ```text
@@ -207,10 +205,16 @@ Correcciones y verificación del 2026-10-04: las consultas de ambos historiales 
 
 ## Fase 8. Reportes y entrega
 
-- [ ] Confirmar el listado exacto de reportes obligatorios del enunciado. **El PDF no está en el repositorio; el usuario autorizó avanzar con el alcance provisional ventas, inventario y movimientos.**
-- [x] Definir consultas y filtros de reportes, considerando estados de pedidos y rangos de fechas.
-- [x] Crear `ReporteDAO`, `ReporteServicio` y `FormReportes`.
-- [x] Mostrar reportes en `JTable`; alcance provisional: ventas, inventario y movimientos.
+- [x] Confirmar el listado exacto de reportes obligatorios del enunciado. El archivo `Proyecto_Pan_Puntos_y_Premios.pdf` se encuentra en la raíz del proyecto y en la Sección 14 (Pág. 7) detalla los 6 reportes obligatorios a visualizar mediante `JTable`:
+  - **01. Ventas por período:** ventas pagadas dentro de un rango de fechas y el total vendido desglosado por efectivo y tarjeta. *(Actualmente `FormReportes` lista filas individuales; falta cálculo consolidado/desglosado de totales).*
+  - **02. Productos más vendidos:** productos según la cantidad de unidades vendidas, desglosando sándwiches individuales y los componentes de los menús cuando corresponda. *(Pendiente de implementar consulta y vista).*
+  - **03. Productos agotados o con bajo inventario:** productos cuya existencia sea cero o menor o igual a cinco unidades (`existencia <= 5`). *(Actualmente se lista todo el inventario; falta filtro específico).*
+  - **04. Puntos acumulados por cliente:** saldo actual de puntos de cada cliente. *(Existe en `FormClientes`; debe incorporarse en `FormReportes` como consulta dedicada).*
+  - **05. Historial de canjes:** canjes realizados, identificando cliente, fecha, recompensa y puntos utilizados. *(Existe por cliente en `FormPuntosYCanjes`; falta consulta global con nombre de recompensa en `FormReportes`).*
+  - **06. Ventas de menús completos:** menús vendidos, las cantidades y los importes generados por cada menú. *(Pendiente de implementar consulta y vista).*
+- [ ] Implementar en `ReporteDAO` y `ReporteDAOImpl` las consultas SQL para los reportes faltantes (02, 03 filtro <= 5, 04, 05 con recompensas, 06 y resumen de 01).
+- [ ] Actualizar `ReporteServicio` con los nuevos tipos de reporte y validaciones correspondientes.
+- [ ] Actualizar `FormReportes` para exponer en el combo los 6 reportes oficiales y presentarlos en `JTable`.
 - [x] Probar el flujo completo: cliente → abastecimiento → pedido → cobro → puntos → canje → reportes. **Prueba aislada H2.**
 - [x] Verificar consistencia entre reportes y datos persistidos. **Pruebas H2 comprueban pedidos, saldo, existencias y tipos de movimiento.**
 - [x] Ejecutar pruebas de integración en un entorno de prueba separado de los datos compartidos del equipo. **H2 en memoria; no escribe en Oracle.**
@@ -219,11 +223,9 @@ Correcciones y verificación del 2026-10-04: las consultas de ambos historiales 
 - [x] Actualizar README con configuración, ejecución, pruebas y uso de reportes.
 - [ ] Contrastar los entregables con el enunciado y registrar limitaciones pendientes.
 
-Criterio de cierre: flujo completo verificado, reportes confirmados y aplicación ejecutable con documentación suficiente.
+Criterio de cierre: los 6 reportes obligatorios implementados y verificados en `FormReportes` mediante `JTable`, flujo completo verificado y aplicación ejecutable con documentación suficiente.
 
-Implementación inicial del 2026-10-04: alcance provisional de cuatro vistas tabulares: ventas pagadas/entregadas filtrables por fecha de pedido y estado; inventario de productos filtrable por activo; movimientos de inventario filtrables por fecha y tipo; y movimientos de puntos filtrables por fecha y tipo. Las fechas son inclusivas y aceptan límites abiertos; se enlazan como parámetros SQL. `FormReportes` se abre desde el menú Reportes y consulta Oracle en segundo plano con una conexión por operación.
-
-Verificación inicial: `ReporteServicioTest` cubre filtros, fechas, estados, existencias y el flujo integrado de cliente, abastecimiento, pedido, cobro, puntos, canje y reportes usando H2 en memoria. La suite actual (`mvn --batch-mode --no-transfer-progress clean test`) terminó con 67 pruebas correctas. La prueba visual, el arranque del JAR y la confirmación del alcance contra el enunciado siguen pendientes.
+Implementación histórica del 2026-10-04 y actualización del 2026-10-08: en 2026-10-04 se definió un alcance provisional de 4 vistas tabulares. El 2026-10-08 se analizó `Proyecto_Pan_Puntos_y_Premios.pdf`, formalizando la lista de los 6 reportes obligatorios requeridos para la ponderación completa de la rúbrica (Criterio 8: 2 puntos).
 
 ## Cómo se verá y correrá la interfaz (Fase 3 en adelante)
 
@@ -331,7 +333,7 @@ Ambas integraciones usan datos temporales únicos y ejecutan su limpieza al fina
 | Interfaz | Java Swing, conforme al diseño existente | Implementada para clientes, productos, menús e inventario |
 | Lógica de negocio | Servicios Java y DAO JDBC; no duplicar reglas entre capas | Implementada y probada para fases 2 a 4 |
 | PL/SQL | Confirmar si el enunciado exige funciones o procedimientos almacenados | Pendiente |
-| Reportes | Confirmar la sección de reportes del PDF original | Pendiente |
+| Reportes | Confirmados los 6 reportes obligatorios de la Sección 14 del PDF; actualizar DAO, servicio y FormReportes para cubrirlos formalmente | En curso |
 | Anulaciones | Solo pedidos pendientes; devoluciones de ventas pagadas fuera de este alcance | Implementada con bloqueo frente a cobros |
 | Entrega de pedidos | Botón Marcar entregado en cobro y comprobantes; solo desde PAGADO | Implementada y probada en H2 |
 | Menús | Un componente de cada categoría; el esquema actual no garantiza por sí solo esta composición | Validado en `MenuServicio`; fase 4 completada |
@@ -343,6 +345,7 @@ Ambas integraciones usan datos temporales únicos y ejecutan su limpieza al fina
 
 | Fecha | Fase / actividad | Trabajo realizado | Archivos afectados | Verificación / evidencia | Pendientes |
 |---|---|---|---|---|---|
+| 2026-10-08 | Auditoría de requisitos del enunciado | Se analizó `Proyecto_Pan_Puntos_y_Premios.pdf` incorporado a la raíz del repositorio; se contrastaron los 6 reportes obligatorios de la Sección 14 con las consultas y vistas actuales; se formalizaron las tareas pendientes de la Fase 8 en el plan de implementación | `PLAN_IMPLEMENTACION.md` | Contraste analítico detallado del PDF contra el código Java y SQL | Implementar consultas SQL en DAO, servicio y opciones en `FormReportes` para los 6 reportes obligatorios |
 | 2026-10-04 | Correcciones de fase 7 e inicio de fase 8 | Se serializaron las consultas de historial; se probó rollback después de una escritura; se implementaron consultas y pantalla de reportes provisionales | `FormPuntosYCanjes.java`, `PuntosYCanjesServicioTest.java`, DAO/servicio/modelo/formulario de reportes, `VentanaPrincipal.java`, `README.md`, `PLAN_IMPLEMENTACION.md` | `mvn clean test`: 67 pruebas, 0 fallos, 0 errores, 0 omitidas; incluye canje con rollback forzado y flujo integral de reportes en H2 | Confirmar reportes exactos con enunciado; revisión visual/Oracle de reportes; generar y ejecutar JAR final |
 | 2026-10-04 | Auditoría de fase 7 en `aaf4761` | Comparación del plan con los DAO, servicio, vista y pruebas del commit | `PLAN_IMPLEMENTACION.md` | `mvn --batch-mode --no-transfer-progress clean test`: 61 pruebas correctas. Se confirmó que la prueba de stock no fuerza rollback tras escrituras y se detectó que las dos consultas de historial comparten conexión y estado de tarea | Serializar/aislar las cargas de historiales y añadir una prueba de rollback después de una escritura; fase 7 queda en curso |
 | 2026-10-04 | Auditoría de fase 6 tras integrar fase 7 | Se revisaron servicio, bloqueo/concurrencia, UI, comprobante, pruebas y seguimiento | `PLAN_IMPLEMENTACION.md` | `mvn --batch-mode --no-transfer-progress test`: 61 pruebas, 0 fallos, 0 errores, 0 omitidas; 16 pruebas de cobro. El usuario había confirmado la verificación manual y contra Oracle el 2026-09-30 | No se encontraron defectos funcionales bloqueantes; se corrigieron los conteos y el resumen general desactualizados |

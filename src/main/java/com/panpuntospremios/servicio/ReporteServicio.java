@@ -8,7 +8,20 @@ import java.time.LocalDate;
 import java.util.Set;
 
 public class ReporteServicio {
-    public enum Tipo { VENTAS, INVENTARIO, MOVIMIENTOS_INVENTARIO, MOVIMIENTOS_PUNTOS }
+    public enum Tipo {
+        VENTAS,
+        INVENTARIO,
+        MOVIMIENTOS_INVENTARIO,
+        MOVIMIENTOS_PUNTOS,
+        // Reportes del enunciado
+        VENTAS_POR_PERIODO,
+        PRODUCTOS_MAS_VENDIDOS,
+        BAJO_INVENTARIO,
+        PUNTOS_POR_CLIENTE,
+        HISTORIAL_CANJES,
+        VENTAS_MENUS
+    }
+
     private final ReporteDAO dao;
     public ReporteServicio(ReporteDAO dao) { this.dao = dao; }
 
@@ -38,7 +51,40 @@ public class ReporteServicio {
                 validarFiltro(valor, Set.of("TODOS", "ACUMULACION", "CANJE"));
                 yield dao.consultarMovimientosPuntos(desde, hasta, valor);
             }
+            case VENTAS_POR_PERIODO -> {
+                validarFiltro(valor, Set.of("TODOS", "EFECTIVO", "TARJETA"));
+                yield dao.consultarVentasPorPeriodo(desde, hasta, valor);
+            }
+            case PRODUCTOS_MAS_VENDIDOS -> dao.consultarProductosMasVendidos();
+            case BAJO_INVENTARIO -> dao.consultarBajoInventario();
+            case PUNTOS_POR_CLIENTE -> dao.consultarPuntosPorCliente();
+            case HISTORIAL_CANJES -> dao.consultarHistorialCanjes();
+            case VENTAS_MENUS -> dao.consultarVentasMenus();
         };
+    }
+
+    public ReporteDatos consultarVentasPorPeriodo(LocalDate desde, LocalDate hasta, String metodo) throws SQLException {
+        return consultar(Tipo.VENTAS_POR_PERIODO, desde, hasta, metodo);
+    }
+
+    public ReporteDatos consultarProductosMasVendidos() throws SQLException {
+        return consultar(Tipo.PRODUCTOS_MAS_VENDIDOS, null, null, "TODOS");
+    }
+
+    public ReporteDatos consultarBajoInventario() throws SQLException {
+        return consultar(Tipo.BAJO_INVENTARIO, null, null, "TODOS");
+    }
+
+    public ReporteDatos consultarPuntosPorCliente() throws SQLException {
+        return consultar(Tipo.PUNTOS_POR_CLIENTE, null, null, "TODOS");
+    }
+
+    public ReporteDatos consultarHistorialCanjes() throws SQLException {
+        return consultar(Tipo.HISTORIAL_CANJES, null, null, "TODOS");
+    }
+
+    public ReporteDatos consultarVentasMenus() throws SQLException {
+        return consultar(Tipo.VENTAS_MENUS, null, null, "TODOS");
     }
 
     private static void validarFiltro(String filtro, Set<String> permitidos) {

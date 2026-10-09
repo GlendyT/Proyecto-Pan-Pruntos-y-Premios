@@ -46,6 +46,7 @@ public class FormReportes extends FormularioAsincrono {
             case INVENTARIO -> new String[]{"TODOS", "ACTIVOS", "INACTIVOS"};
             case MOVIMIENTOS_INVENTARIO -> new String[]{"TODOS", "ABASTECIMIENTO", "VENTA", "CANJE"};
             case MOVIMIENTOS_PUNTOS -> new String[]{"TODOS", "ACUMULACION", "CANJE"};
+            default -> new String[]{"TODOS"};
         };
         filtro.setModel(new DefaultComboBoxModel<>(opciones));
         etiquetaFiltro.setText(tipo == ReporteServicio.Tipo.VENTAS ? "Estado:" :

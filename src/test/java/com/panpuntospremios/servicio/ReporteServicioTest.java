@@ -91,5 +91,65 @@ class ReporteServicioTest extends BasePedidoTest {
             LocalDate.now(), LocalDate.now().minusDays(1), "TODOS"));
         assertThrows(ValidacionException.class, () -> reportes().consultar(ReporteServicio.Tipo.VENTAS,
             null, null, "ANULADO"));
+        assertThrows(ValidacionException.class, () -> reportes().consultar(ReporteServicio.Tipo.VENTAS_POR_PERIODO,
+            null, null, "INVALIDO"));
+    }
+
+    @Test void ventasPorPeriodoCalculaTotalesYDesglosaPorMetodo() throws Exception {
+        int id = ventaPagada();
+        ReporteDatos r = reportes().consultarVentasPorPeriodo(LocalDate.now(), LocalDate.now(), "TODOS");
+        assertTrue(r.filas().size() >= 1);
+        assertTrue(r.titulo().contains("Total:"));
+        assertTrue(r.titulo().contains("Tarjeta:"));
+        assertTrue(r.titulo().contains("Efectivo:"));
+        assertEquals(8, r.columnas().size());
+
+        ReporteDatos soloTarjeta = reportes().consultarVentasPorPeriodo(LocalDate.now(), LocalDate.now(), "TARJETA");
+        assertTrue(soloTarjeta.filas().size() >= 1);
+        ReporteDatos soloEfectivo = reportes().consultarVentasPorPeriodo(LocalDate.now(), LocalDate.now(), "EFECTIVO");
+        assertEquals(0, soloEfectivo.filas().size());
+    }
+
+    @Test void productosMasVendidosDesglosaUnidadesIndividualesYMenus() throws Exception {
+        ventaPagada();
+        ReporteDatos r = reportes().consultarProductosMasVendidos();
+        assertEquals(6, r.columnas().size());
+        assertEquals("Código", r.columnas().get(0));
+        assertEquals("Total unidades vendidas", r.columnas().get(5));
+        assertTrue(r.filas().size() >= 4);
+    }
+
+    @Test void bajoInventarioFiltraExistenciasMenoresOIgualesACinco() throws Exception {
+        ejecutar("UPDATE producto SET existencia = 3 WHERE codigo = 'SAN002'");
+        ReporteDatos r = reportes().consultarBajoInventario();
+        assertTrue(r.filas().stream().anyMatch(f -> "SAN002".equals(f.get(1))));
+        var fila = r.filas().stream().filter(f -> "SAN002".equals(f.get(1))).findFirst().orElseThrow();
+        assertEquals("BAJO INVENTARIO", fila.get(6));
+        assertEquals(3, ((Number) fila.get(5)).intValue());
+    }
+
+    @Test void puntosPorClienteOrdenaPorSaldo() throws Exception {
+        ReporteDatos r = reportes().consultarPuntosPorCliente();
+        assertEquals(7, r.columnas().size());
+        assertTrue(r.filas().size() >= 2);
+        assertEquals("Saldo puntos", r.columnas().get(5));
+    }
+
+    @Test void historialCanjesMuestraRecompensaYCliente() throws Exception {
+        ejecutar("UPDATE cliente SET saldo_puntos = 100 WHERE id_cliente = 1");
+        new PuntosYCanjesServicio(c).canjear(1, 1);
+        ReporteDatos r = reportes().consultarHistorialCanjes();
+        assertTrue(r.filas().size() >= 1);
+        assertEquals("Historial de canjes", r.titulo());
+        assertEquals("Recompensa", r.columnas().get(4));
+        assertEquals("Puntos utilizados", r.columnas().get(5));
+    }
+
+    @Test void ventasMenusCalculaCantidadesEImportes() throws Exception {
+        ReporteDatos r = reportes().consultarVentasMenus();
+        assertEquals(6, r.columnas().size());
+        assertEquals("ID menú", r.columnas().get(0));
+        assertEquals("Importe generado", r.columnas().get(5));
+        assertTrue(r.filas().size() >= 1);
     }
 }

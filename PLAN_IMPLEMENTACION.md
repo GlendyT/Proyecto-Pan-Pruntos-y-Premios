@@ -212,9 +212,9 @@ Correcciones y verificación del 2026-10-04: las consultas de ambos historiales 
   - **04. Puntos acumulados por cliente:** saldo actual de puntos de cada cliente. *(Existe en `FormClientes`; debe incorporarse en `FormReportes` como consulta dedicada).*
   - **05. Historial de canjes:** canjes realizados, identificando cliente, fecha, recompensa y puntos utilizados. *(Existe por cliente en `FormPuntosYCanjes`; falta consulta global con nombre de recompensa en `FormReportes`).*
   - **06. Ventas de menús completos:** menús vendidos, las cantidades y los importes generados por cada menú. *(Pendiente de implementar consulta y vista).*
-- [ ] Implementar en `ReporteDAO` y `ReporteDAOImpl` las consultas SQL para los reportes faltantes (02, 03 filtro <= 5, 04, 05 con recompensas, 06 y resumen de 01).
-- [ ] Actualizar `ReporteServicio` con los nuevos tipos de reporte y validaciones correspondientes.
-- [ ] Actualizar `FormReportes` para exponer en el combo los 6 reportes oficiales y presentarlos en `JTable`.
+- [x] Implementar en `ReporteDAO` y `ReporteDAOImpl` las consultas SQL para los reportes faltantes (02, 03 filtro <= 5, 04, 05 con recompensas, 06 y resumen de 01).
+- [x] Actualizar `ReporteServicio` con los nuevos tipos de reporte y validaciones correspondientes.
+- [x] Actualizar `FormReportes` para exponer en el combo los 6 reportes oficiales y presentarlos en `JTable`.
 - [x] Probar el flujo completo: cliente → abastecimiento → pedido → cobro → puntos → canje → reportes. **Prueba aislada H2.**
 - [x] Verificar consistencia entre reportes y datos persistidos. **Pruebas H2 comprueban pedidos, saldo, existencias y tipos de movimiento.**
 - [x] Ejecutar pruebas de integración en un entorno de prueba separado de los datos compartidos del equipo. **H2 en memoria; no escribe en Oracle.**

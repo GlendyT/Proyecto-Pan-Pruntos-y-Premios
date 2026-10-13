@@ -6,9 +6,9 @@ Sistema de gestión de pedidos y fidelización para un restaurante de sándwiche
 
 El portal permite a cada cliente solicitar acceso por correo y consultar su propio saldo e historial de puntos. No ofrece funciones de cajero ni administración.
 
-- **Estado:** API desplegada en OCI y accesible por HTTPS; certificado real y renovación automática configurados. El frontend Next.js todavía no se ha publicado en Vercel.
-- **Continuar desde aquí:** consulta [`PLAN_API_SPRING_BOOT.md`](PLAN_API_SPRING_BOOT.md) para el plan por fases y [`docs/GUIA_DESPLIEGUE_OCI_VERCEL.md`](docs/GUIA_DESPLIEGUE_OCI_VERCEL.md) para el registro reproducible de la configuración, el traspaso a otro desarrollador, la preparación local y los siguientes pasos de Vercel.
-- **API actual:** `https://163.192.144.19/api/v1/health` (solo health; el acceso a puntos requiere sesión de cliente).
+- **Estado:** API Spring Boot en OCI y portal Next.js en Vercel; el flujo de enlace por correo e inicio de sesión fue confirmado. Fases 0–8 completadas; la Fase 9 está documentada como aceptación de aplicación, con cambios de infraestructura aplazados.
+- **Documentación:** [`docs/ARQUITECTURA_Y_MODULOS.md`](docs/ARQUITECTURA_Y_MODULOS.md) describe el sistema; [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md) detalla actores y flujos; [`docs/DIAGRAMAS.md`](docs/DIAGRAMAS.md) contiene diagramas Mermaid; [`docs/GUIA_DESPLIEGUE_OCI_VERCEL.md`](docs/GUIA_DESPLIEGUE_OCI_VERCEL.md) explica preparación local y operación del despliegue; [`docs/FASE9_ACEPTACION_SEGURIDAD.md`](docs/FASE9_ACEPTACION_SEGURIDAD.md) registra la aceptación y los cambios de infraestructura aplazados.
+- **API actual:** `https://panpuntospremios.duckdns.org/api/v1/health` (solo health; el acceso a puntos requiere sesión de cliente).
 - **Frontend local:** desde `frontend/`, ejecutar `pnpm install --frozen-lockfile` y `pnpm dev`. La guía de despliegue explica cómo configurar el proxy hacia la API.
 
 No reutilices ni solicites por chat claves privadas, contraseñas de base de datos, secretos de EmailJS ni contenido del wallet. Solicita acceso y secretos al responsable por un canal privado; las plantillas del repositorio contienen solo marcadores.
@@ -18,6 +18,8 @@ No reutilices ni solicites por chat claves privadas, contraseñas de base de dat
 ## Aplicación de escritorio Swing
 
 La aplicación original de escritorio sigue disponible y es independiente del portal web. Para diseño y funcionalidad consulta [`diseno_pan_puntos_premios.md`](diseno_pan_puntos_premios.md). El enunciado original se encuentra en [`Proyecto_Pan_Puntos_y_Premios.pdf`](Proyecto_Pan_Puntos_y_Premios.pdf).
+
+Para conocer los módulos funcionales de escritorio y web, empieza por [`docs/ARQUITECTURA_Y_MODULOS.md`](docs/ARQUITECTURA_Y_MODULOS.md). Los casos de uso de operador y cliente están en [`docs/CASOS_DE_USO.md`](docs/CASOS_DE_USO.md).
 
 ---
 
@@ -56,7 +58,19 @@ El proyecto usa una única instancia existente de **Oracle Autonomous Database**
    DB_USER=APP_PUNTOS_API
    DB_PASSWORD=<secreto-proporcionado-privadamente>
    DB_SCHEMA=ADMIN
+
+   # Para la aplicación Swing local, separa la cuenta de conexión:
+   SWING_DB_USER=ADMIN
+   SWING_DB_PASSWORD=<contraseña-ADMIN-proporcionada-privadamente>
    ```
+
+   Spring Boot usa `DB_USER`/`DB_PASSWORD` (cuenta de servicio `APP_PUNTOS_API`).
+   Swing usa `SWING_DB_USER`/`SWING_DB_PASSWORD` cuando están configuradas y
+   puede usar `SWING_DB_URL` si requiere otro wallet o alias. Si faltan las
+   variables `SWING_*`, Swing conserva compatibilidad con configuraciones
+   antiguas que tienen `DB_USER=ADMIN`; no reutiliza automáticamente la cuenta
+   `APP_PUNTOS_API`.
+   Mantén las credenciales reales únicamente en `.env`, que está excluido de Git.
 
    El alias usado actualmente es `panpuntospremios_low`, definido dentro del `tnsnames.ora` del wallet. Si el wallet recibido usa otro alias, conserva el alias que realmente aparezca allí.
 
@@ -64,7 +78,7 @@ El proyecto usa una única instancia existente de **Oracle Autonomous Database**
 
 ### 2.2 Esquema existente
 
-El esquema compartido ya tiene las tablas de la aplicación y la migración aditiva de autenticación aplicada y verificada. **No ejecutes `sql/ddl.sql` ni `sql/auth_tokens_up.sql` en esta base compartida**; esos scripts no son pasos de alta por desarrollador. Consulta [`docs/GUIA_DESPLIEGUE_OCI_VERCEL.md`](docs/GUIA_DESPLIEGUE_OCI_VERCEL.md) para el acceso local de API, y solicita autorización antes de ejecutar cualquier SQL administrativo. `sql/ddl.sql` aplica solo al crear una base de datos aislada nueva, fuera del flujo de continuidad del portal.
+El esquema compartido ya tiene las tablas de la aplicación y la migración aditiva de autenticación aplicada y verificada. **No ejecutes scripts de creación ni `sql/auth_tokens_up.sql` en esta base compartida.** Para una base aislada nueva, `sql/crear_esquema.sql` crea las diez tablas del sistema y `sql/datos_demo.sql` carga datos demostrativos; `sql/ddl.sql` conserva el esquema y los datos juntos como fixture de las pruebas H2. `sql/auth_tokens_up.sql` es una migración independiente y solo debe ejecutarse siguiendo su procedimiento. Consulta [`docs/GUIA_DESPLIEGUE_OCI_VERCEL.md`](docs/GUIA_DESPLIEGUE_OCI_VERCEL.md) para el acceso local de API y solicita autorización antes de cualquier SQL administrativo.
 
 ---
 
@@ -98,14 +112,20 @@ Se abrirá la ventana principal de Swing. La navegación disponible es:
 
 Los precios y puntos de un pedido confirmado se conservan aunque cambie el precio del catálogo. Los componentes de un menú no se pueden editar mientras tenga pedidos pendientes: primero deben cobrarse o anularse. Al confirmar y cobrar se vuelven a validar actividad y existencias; un pedido pendiente no reserva stock.
 
-La tarjeta es una simulación y no solicita datos bancarios. El esquema no requiere migraciones: `referencia_pago` guarda el importe recibido para efectivo o una referencia `SIM-` para tarjeta. El comprobante identifica los ítems por sus IDs y muestra la fecha del pedido. Las pruebas automatizadas usan H2; además, se verificó en Oracle el flujo de cobro, su persistencia tras reconectar, el rechazo y la falta de stock sin cambios parciales. La regularización del inventario histórico inicial sigue registrada en la fase 1 del plan.
+La tarjeta es una simulación y no solicita datos bancarios. El esquema no requiere migraciones: `referencia_pago` guarda el importe recibido para efectivo o una referencia `SIM-` para tarjeta. El comprobante identifica los ítems por sus IDs y muestra la fecha del pedido. Las pruebas automatizadas usan H2; además, se verificó en Oracle el flujo de cobro, su persistencia tras reconectar, el rechazo y la falta de stock sin cambios parciales. La conciliación entre inventario inicial y movimientos se completó en fase 1; consulta el plan para el detalle.
 
 ### Reportes
 
-La pantalla **Reportes → Consultar reportes** ofrece el alcance provisional de ventas pagadas/entregadas, inventario de productos, movimientos de inventario y movimientos de puntos. Ventas y movimientos aceptan un rango de fechas inclusivo y filtros por estado o tipo; las fechas se escriben como `AAAA-MM-DD` y se pueden dejar vacías para consultar todo el historial. Inventario permite ver todos los productos o filtrar activos/inactivos. Las tablas permiten ordenar por columna.
+La pantalla **Reportes → Consultar reportes** incluye los seis reportes obligatorios del enunciado y cuatro consultas complementarias:
 
-Los reportes reflejan los datos guardados en Oracle. La suite prueba en H2 las consultas, filtros y el flujo cliente → abastecimiento → pedido → cobro → puntos → canje → reportes. El listado definitivo de reportes sigue pendiente de contrastarse con el PDF del enunciado.
+1. **Ventas por periodo:** lista pedidos pagados/entregados y muestra total, efectivo y tarjeta para el rango elegido.
+2. **Productos mas vendidos:** desglosa unidades individuales y unidades vendidas como parte de menus.
+3. **Productos agotados o con bajo inventario:** muestra productos con existencia menor o igual a cinco.
+4. **Puntos acumulados por cliente:** muestra saldos actuales.
+5. **Historial de canjes:** identifica cliente, fecha, recompensa y puntos utilizados.
+6. **Ventas de menus completos:** muestra cantidades e importes vendidos por menu.
 
+Las consultas de ventas por periodo, ventas generales y movimientos aceptan un rango inclusivo de fechas `AAAA-MM-DD`; las tablas permiten ordenar por columna. Las pruebas aisladas en H2 cubren consultas y filtros. El usuario confirmó que abrió el JAR y consultó los reportes; los resultados Oracle están contrastados en [`sql/verificar_reportes_fase8.sql`](sql/verificar_reportes_fase8.sql), el usuario confirmó que los seis reportes coinciden con Oracle (Ventas por periodo: 2026-09-01 a 2026-10-13). El flujo de correo y acceso del portal publicado en Vercel también fue confirmado. La prueba ORA-12541 mostró el error esperado; el usuario confirmó que la ventana sigue respondiendo al cerrar el aviso. La Fase 8 quedó completada; el resultado de GitHub Actions y la evidencia están registrados en [`PLAN_IMPLEMENTACION.md`](PLAN_IMPLEMENTACION.md).
 ### Comandos de desarrollo y verificación
 
 | Objetivo | Comando | ¿Requiere Oracle? |

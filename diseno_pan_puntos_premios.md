@@ -31,6 +31,7 @@ erDiagram
   PRODUCTO ||--o{ MOVIMIENTO_INVENTARIO : registra
   CLIENTE ||--o{ MOVIMIENTO_PUNTOS : acumula
   CLIENTE ||--o{ CANJE : realiza
+  CLIENTE ||--o{ CLIENTE_TOKEN_ACCESO : autentica
   RECOMPENSA ||--o{ CANJE : canjeada
   PRODUCTO ||--o{ RECOMPENSA : otorga
   MENU ||--o{ RECOMPENSA : otorga
@@ -110,7 +111,19 @@ erDiagram
     date fecha
     number puntos_utilizados
   }
+  CLIENTE_TOKEN_ACCESO {
+    number id_token PK
+    number id_cliente FK
+    string token_hash UK
+    timestamp fecha_creacion
+    timestamp fecha_expiracion
+    timestamp fecha_uso
+    string direccion_ip
+    string origen_solicitud
+  }
 ```
+
+`CLIENTE_TOKEN_ACCESO` y las columnas de verificación de correo (`EMAIL_VERIFICADO`, `FECHA_VERIFICACION_EMAIL`) pertenecen a la extensión posterior del portal web; se crean mediante `sql/auth_tokens_up.sql`, no en el DDL base de escritorio.
 
 **Decisiones de diseño clave**
 

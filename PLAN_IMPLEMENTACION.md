@@ -2,9 +2,9 @@
 
 Fecha de creación: 2026-09-20.
 
-Estado general: fases 2 a 7 completadas; fases 1 y 8 en curso. Fases 6 y 7 verificadas en pruebas aisladas; fase 6 además se verificó en Oracle. Auditoría actualizada el 2026-10-04.
+Estado general: fases 1 a 8 completadas. La fase 1 se cerró con verificación del esquema y conciliación de inventario en Oracle el 2026-10-13. El 2026-10-13 `mvn package` generó el JAR de escritorio y terminó con 94 pruebas correctas; el usuario abrió el JAR, comparó los seis reportes con Oracle y confirmó el manejo de ORA-12541. El portal Next.js está publicado en Vercel y el usuario confirmó que el enlace recibido por correo abre el dominio público y permite iniciar sesión. Las tres ejecuciones más recientes de Java CI compartidas por el usuario aparecen exitosas; queda pendiente la fase 9 de seguridad y aceptación del portal.
 
-Este documento registra el alcance previsto, los avances, las verificaciones y las decisiones pendientes. Las marcas reflejan los archivos presentes y las verificaciones disponibles en el repositorio al 2026-10-04.
+Este documento registra el alcance previsto, los avances, las verificaciones y las decisiones pendientes. Las marcas reflejan los archivos presentes y las verificaciones disponibles en el repositorio al 2026-10-13.
 
 ## Cómo llevar el seguimiento
 
@@ -27,7 +27,7 @@ El `Main.java` actual inicia `VentanaPrincipal` en el hilo de eventos de Swing. 
 
 El esquema local define 10 tablas: `cliente`, `producto`, `menu`, `menu_detalle`, `pedido`, `pedido_detalle`, `movimiento_inventario`, `movimiento_puntos`, `recompensa` y `canje`. El usuario confirmó que las tablas y columnas ya existen en Oracle. Los resultados aportados en `result.json` fueron revisados y concuerdan con el DDL en tablas, columnas, restricciones, valores predeterminados e identidades.
 
-El proyecto ya contiene modelos, enums, excepciones, DAO y servicios para clientes, productos, menús, inventario, pedidos, cobros, fidelización y reportes, además de sus formularios Java Swing. La suite aislada actual contiene 67 pruebas automatizadas; las funciones o procedimientos almacenados siguen sin estar definidos en el SQL revisado.
+El proyecto ya contiene modelos, enums, excepciones, DAO y servicios para clientes, productos, menús, inventario, pedidos, cobros, fidelización y reportes, además de sus formularios Java Swing. La última ejecución local registrada contiene 94 pruebas automatizadas correctas; las funciones o procedimientos almacenados siguen sin estar definidos en el SQL revisado.
 
 ## Arquitectura prevista
 
@@ -52,44 +52,42 @@ Las vistas invocarán servicios; los servicios coordinarán las reglas y los DAO
 
 | Fase | Alcance | Estado | Dependencias |
 |---|---|---|---|
-| 1 | Base técnica y esquema | En curso (3 de 8 tareas verificadas) | Inicio autorizado |
+| 1 | Base técnica y esquema | Completada (8 de 8 tareas verificadas) | Inicio autorizado |
 | 2 | Modelos y reglas | Completada (8 de 8 tareas verificadas) | Fase 1 |
 | 3 | Clientes y primera pantalla | Completada (7 de 7 tareas verificadas) | Fase 2 |
 | 4 | Productos, menús e inventario | Completada (9 de 9 tareas verificadas) | Fases 2 y 3 |
 | 5 | Pedidos | Completada (9 de 9; verificación aislada) | Fases 3 y 4 |
 | 6 | Cobro y acumulación de puntos | Completada (12 de 12 tareas verificadas) | Fase 5 |
 | 7 | Recompensas y canjes | Completada (10 de 10 tareas verificadas) | Fases 4 y 6 |
-| 8 | Reportes y entrega | En curso (7 de 11 tareas verificadas; alcance provisional confirmado por el usuario) | Fases anteriores |
+| 8 | Reportes y entrega | Completada (14 de 14 tareas verificadas) | Fases anteriores |
 
 ## Fase 1. Base técnica y esquema
 
 - [x] Verificar qué tablas, columnas y restricciones ya existen en Oracle.
-- [ ] Crear `sql/verificar_esquema.sql` para revisar la estructura esperada. **Se reportó como creado y ejecutado, pero el archivo no está presente ni registrado en Git; debe recuperarse o recrearse.**
+- [x] Crear `sql/verificar_esquema.sql` con consultas de solo lectura para comprobar tablas, conteos de columnas y estado de restricciones.
 - [x] Preparar ajustes incrementales necesarios conservando los datos existentes; no ejecutar de nuevo todo el DDL sobre tablas existentes. **La verificación histórica no encontró diferencias que requirieran ajustes; por tanto, no correspondía generar ni ejecutar scripts de alteración.**
-- [ ] Separar los datos de prueba del script de creación del esquema.
-- [ ] Resolver la coherencia entre existencias iniciales e historial: el SQL actual carga existencias sin movimientos de abastecimiento. Revisar los datos reales antes de preparar una regularización.
-- [ ] Mejorar los mensajes de configuración faltante en `ConexionOracle.java`.
-- [ ] Revisar Maven, la versión Java documentada, el empaquetado y la plantilla `.env.example`.
+- [x] Separar el esquema y los datos de demostración en `sql/crear_esquema.sql` y `sql/datos_demo.sql`; conservar `sql/ddl.sql` como fixture combinado para H2.
+- [x] Revisar la coherencia entre existencias iniciales e historial antes de considerar una regularización. **Validado con los datos Oracle del 2026-10-13; los saldos actuales concuerdan con los movimientos disponibles y con el inventario semilla conocido. No fue necesario modificar datos ni inventar movimientos históricos.**
+- [x] Mejorar los mensajes de configuración faltante en `ConexionOracle.java` y separar credenciales de API (`DB_*`) y escritorio (`SWING_DB_*`).
+- [x] Revisar `pom.xml`, Java 17, el plugin de empaquetado y la plantilla versionada `.env.example`; la ejecución del JAR final sigue pendiente en fase 8.
 - [x] Verificar compilación, conexión y compatibilidad del esquema.
 
 Archivos previstos: `sql/verificar_esquema.sql`, scripts de ajustes y datos de prueba, `ConexionOracle.java`, `pom.xml`, `.env.example` y documentación de configuración.
 
 Criterio de cierre: conexión comprobada y esquema compatible, con evidencia de verificaciones y conservación de los datos existentes.
 
-Auditoría detallada del 2026-09-25:
+Auditoría retrospectiva iniciada el 2026-09-25 y actualizada el 2026-10-13:
 
-1. **Verificación del esquema — completa.** La salida aportada registró 107 comprobaciones con estado `OK`.
-2. **Script repetible de verificación — pendiente.** `sql/verificar_esquema.sql` no existe en el árbol actual ni en el historial de Git, aunque hay evidencia de que se utilizó fuera del repositorio.
+1. **Verificación del esquema en Oracle — completada y repetida el 2026-10-13.** `result.json` confirma las 10 tablas base, la tabla `CLIENTE_TOKEN_ACCESO`, las columnas `EMAIL_VERIFICADO` y `FECHA_VERIFICACION_EMAIL`, y restricciones habilitadas/validadas. La consulta de conteo señaló 10 columnas para `CLIENTE` frente a las 8 originales del esquema base; son las dos columnas agregadas por la autenticación web y no una anomalía de Oracle.
+2. **Script repetible de verificación — ejecutado el 2026-10-13.** `sql/verificar_esquema.sql` es de solo lectura. Se corrigió el conteo esperado de `CLIENTE` a 10 para incluir las columnas de autenticación web comprobadas en `result.json`.
 3. **Ajustes incrementales — completa para el esquema verificado.** Al no encontrarse diferencias entre Oracle y el DDL esperado, no había ajustes que preparar. Si el esquema cambia, deberá repetirse la comparación antes de crear migraciones.
-4. **Separación de datos de prueba — pendiente.** `sql/ddl.sql` todavía mezcla las diez sentencias `CREATE TABLE` con los `INSERT` de clientes, productos, menú y recompensas.
-5. **Coherencia de existencias e historial — pendiente.** Los productos de ejemplo se insertan con existencias positivas, pero no se insertan movimientos de abastecimiento en `movimiento_inventario`.
-6. **Mensajes por configuración faltante — pendiente.** `ConexionOracle` permite que `.env` falte, pero pasa valores nulos a `DriverManager` sin indicar qué variable (`DB_URL`, `DB_USER` o `DB_PASSWORD`) debe configurarse.
-7. **Maven, Java, empaquetado y plantilla — pendiente parcialmente.** `mvn package` genera correctamente el JAR sombreado y su manifiesto contiene `Main-Class: com.panpuntospremios.Main`; `pom.xml` y el README ya coinciden en la compatibilidad con Java 17 o superior. Durante esta auditoría se retiró `.env.example` de `.gitignore`, pero el archivo sigue sin estar registrado en Git y su `DB_URL` está incompleto (`jdbc:oracle:thin:`), por lo que todavía no constituye una plantilla reproducible para un clon nuevo.
+4. **Separación de datos de prueba — completada el 2026-10-13.** Se añadieron `sql/crear_esquema.sql` y `sql/datos_demo.sql`. `sql/ddl.sql` se conserva como fixture combinado que consumen las pruebas H2.
+5. **Coherencia de existencias e historial — revisada el 2026-10-13.** La salida de `sql/verificar_inventario_movimientos.sql` muestra que la existencia actual coincide con la del movimiento más reciente para los productos con movimientos. Los productos semilla `SAN001`, `BEB001` y `ACO001` también concuerdan con su existencia inicial en `sql/ddl.sql` menos las ventas observadas; `SAN002` conserva sus 20 unidades semilla y no tiene movimientos. `POLLO` y `BEB002` coinciden con sus abastecimientos registrados; `BRW001` parte de un abastecimiento de 80 y tiene una venta de 7, por lo que quedan 73. No se insertaron movimientos retroactivos porque no hay evidencia de una fecha de apertura que permita registrarlos correctamente.
+6. **Mensajes por configuración faltante — completado el 2026-10-13.** `ConexionOracle` valida URL, usuario y contraseña antes de conectarse. Swing prioriza `SWING_DB_URL`, `SWING_DB_USER` y `SWING_DB_PASSWORD`; si no se configuran las variables específicas, solo conserva el fallback legado cuando `DB_USER` no es `APP_PUNTOS_API`.
+7. **Maven, Java y plantilla — revisión estática completada el 2026-10-13.** `pom.xml` y README coinciden en Java 17 o superior; el empaquetado usa `maven-shade-plugin`, y `.env.example` está versionado con URL TNS y marcadores para API y Swing. La generación y ejecución del JAR final se valida en fase 8.
 8. **Compilación, conexión y compatibilidad — completa.** `mvn compile`, `mvn test` y `mvn package` finalizaron con `BUILD SUCCESS`; la conexión y la compatibilidad estructural cuentan con la evidencia aportada previamente. Desde el cierre de las fases 2 y 3 también existen pruebas automatizadas aisladas y una integración opcional con Oracle.
 
-Evidencia histórica de los puntos 1 y 2: el usuario ejecutó el script y aportó `result.json` (salida tabular de texto, aunque su extensión sea `.json`). La revisión encontró 10 tablas, 63 columnas y 34 restricciones con nombre con estado `OK` (107 comprobaciones). Las restricciones figuran habilitadas y validadas. El inventario de 104 filas incluye las 10 claves primarias, las tres claves únicas esperadas, las referencias de claves foráneas y los CHECK acordes con el DDL. También se revisaron los DEFAULT de las 63 columnas y las nueve identidades `ALWAYS`. No se detectaron errores Oracle en la salida. Esta evidencia verifica estructura; no certifica todavía los datos de negocio ni completa el resto de la fase 1. En la auditoría del 2026-09-25 se comprobó que `sql/verificar_esquema.sql` no está en el árbol de trabajo ni en el historial de Git, por lo que la tarea de conservar ese script vuelve a quedar pendiente.
-
-Cuando se recupere o recree `sql/verificar_esquema.sql`, se deberá ejecutar en el cliente SQL conectado como propietario de las tablas y conservarlo en Git para que cualquier integrante pueda repetir la verificación.
+Evidencia de Oracle aportada el 2026-10-13: `result.json` confirma las diez tablas base, objetos y columnas de autenticación web, restricciones habilitadas/validadas y los saldos/resultados de movimientos descritos arriba. La revisión fue de solo lectura; no se modificó la base compartida.
 
 ## Fase 2. Modelos y reglas
 
@@ -182,7 +180,7 @@ Decisiones de implementación:
 - Los movimientos de inventario registran cantidades positivas de salida con tipo `VENTA` y existencia resultante; los de puntos usan `ACUMULACION` y referencia `PEDIDO:<id>`.
 - Un menú con pedidos pendientes no puede cambiar sus componentes desde el servicio de catálogo. Puede cambiar nombre/precio, que no altera los importes del pedido. Se permite cambiar componentes después de cobrar o anular los pendientes. La confirmación y el cobro bloquean el menú para coordinarse con su edición.
 - La entrega solo admite `PAGADO → ENTREGADO` y no vuelve a mover inventario ni puntos. La anulación solo admite pedidos pendientes.
-- El saldo y las existencias actuales son el punto de partida. La regularización histórica del inventario inicial continúa pendiente en fase 1; no se inventaron movimientos históricos ni se modificó Oracle.
+- El saldo y las existencias actuales son el punto de partida. La conciliación de inventario se completó en fase 1 el 2026-10-13; no se agregaron movimientos históricos sin fecha de apertura verificable ni se modificó Oracle.
 
 Verificación: `VentaServicioTest` aporta 16 pruebas de efectivo exacto/con cambio/inválido, tarjeta aprobada/rechazada, stock insuficiente después de descontar otro producto, rollback por fallo en puntos o estado final, desbordamiento del saldo, cobro repetido, entrega y comprobante persistido. Las pruebas con dos conexiones/hilos cubren doble cobro, competencia por stock entre clientes, acumulación simultánea del mismo cliente y anulación frente a cobro. Suite automatizada: 56 pruebas, 0 fallos, 0 errores, 0 omitidas. El usuario confirmó que los formularios abren y cargan datos de Oracle, y posteriormente confirmó que completó y verificó el flujo de cobro, incluido el rechazo y la falta de stock sin cambios parciales, y la persistencia del pago, inventario, puntos y comprobante tras reconectar. Fase 6 completada.
 
@@ -205,27 +203,31 @@ Correcciones y verificación del 2026-10-04: las consultas de ambos historiales 
 
 ## Fase 8. Reportes y entrega
 
-- [x] Confirmar el listado exacto de reportes obligatorios del enunciado. El archivo `Proyecto_Pan_Puntos_y_Premios.pdf` se encuentra en la raíz del proyecto y en la Sección 14 (Pág. 7) detalla los 6 reportes obligatorios a visualizar mediante `JTable`:
-  - **01. Ventas por período:** ventas pagadas dentro de un rango de fechas y el total vendido desglosado por efectivo y tarjeta. *(Actualmente `FormReportes` lista filas individuales; falta cálculo consolidado/desglosado de totales).*
-  - **02. Productos más vendidos:** productos según la cantidad de unidades vendidas, desglosando sándwiches individuales y los componentes de los menús cuando corresponda. *(Pendiente de implementar consulta y vista).*
-  - **03. Productos agotados o con bajo inventario:** productos cuya existencia sea cero o menor o igual a cinco unidades (`existencia <= 5`). *(Actualmente se lista todo el inventario; falta filtro específico).*
-  - **04. Puntos acumulados por cliente:** saldo actual de puntos de cada cliente. *(Existe en `FormClientes`; debe incorporarse en `FormReportes` como consulta dedicada).*
-  - **05. Historial de canjes:** canjes realizados, identificando cliente, fecha, recompensa y puntos utilizados. *(Existe por cliente en `FormPuntosYCanjes`; falta consulta global con nombre de recompensa en `FormReportes`).*
-  - **06. Ventas de menús completos:** menús vendidos, las cantidades y los importes generados por cada menú. *(Pendiente de implementar consulta y vista).*
+- [x] Confirmar el listado exacto de reportes obligatorios del enunciado. La Seccion 14 del PDF exige seis reportes mediante `JTable`:
+  - **01. Ventas por periodo:** `ReporteDAOImpl.consultarVentasPorPeriodo` lista las ventas del rango y calcula total general, efectivo y tarjeta; `FormReportes` presenta los totales en el titulo y el detalle en `JTable`.
+  - **02. Productos mas vendidos:** `consultarProductosMasVendidos` desglosa unidades individuales y componentes vendidos dentro de menus.
+  - **03. Productos agotados o con bajo inventario:** `consultarBajoInventario` filtra `existencia <= 5`.
+  - **04. Puntos acumulados por cliente:** `consultarPuntosPorCliente` muestra el saldo actual de cada cliente.
+  - **05. Historial de canjes:** `consultarHistorialCanjes` identifica cliente, fecha, recompensa y puntos utilizados.
+  - **06. Ventas de menus completos:** `consultarVentasMenus` presenta cantidades e importes vendidos por menu.
+  - Los seis reportes estan conectados desde `FormReportes` y cubiertos por `ReporteServicioTest` en H2. La validación manual se completó: el usuario consultó los seis reportes en la interfaz y confirmó coincidencia con las consultas de solo lectura en Oracle.
 - [x] Implementar en `ReporteDAO` y `ReporteDAOImpl` las consultas SQL para los reportes faltantes (02, 03 filtro <= 5, 04, 05 con recompensas, 06 y resumen de 01).
 - [x] Actualizar `ReporteServicio` con los nuevos tipos de reporte y validaciones correspondientes.
 - [x] Actualizar `FormReportes` para exponer en el combo los 6 reportes oficiales y presentarlos en `JTable`.
 - [x] Probar el flujo completo: cliente → abastecimiento → pedido → cobro → puntos → canje → reportes. **Prueba aislada H2.**
 - [x] Verificar consistencia entre reportes y datos persistidos. **Pruebas H2 comprueban pedidos, saldo, existencias y tipos de movimiento.**
 - [x] Ejecutar pruebas de integración en un entorno de prueba separado de los datos compartidos del equipo. **H2 en memoria; no escribe en Oracle.**
-- [ ] Comprobar errores de conexión y que la interfaz permanezca utilizable.
-- [ ] Generar y ejecutar el JAR final.
-- [x] Actualizar README con configuración, ejecución, pruebas y uso de reportes.
-- [ ] Contrastar los entregables con el enunciado y registrar limitaciones pendientes.
+- [x] Abrir el JAR y consultar los seis reportes oficiales en la interfaz. **El usuario confirmó que el JAR abrió y que consultó los reportes el 2026-10-13; el 2026-10-14 confirmó el flujo de autenticación publicado: el enlace enviado por correo abre Vercel y permite acceder.**
+- [x] Comparar los seis reportes contra las consultas de solo lectura en Oracle para el mismo rango de fechas y filtros. El usuario confirmó que los seis coinciden; Ventas por periodo usa 2026-09-01 a 2026-10-13.
+- [x] Comprobar errores de conexión y que la interfaz permanezca utilizable. El usuario confirmó que el aviso ORA-12541 se cierra y la ventana sigue respondiendo.
+- [x] Generar el JAR final. **`mvn package` generó el artefacto el 2026-10-13; suite local: 94 pruebas correctas.**
+- [x] Confirmar integración continua. **El usuario compartió `gh run list`: las tres ejecuciones más recientes de Java CI están exitosas; una ejecución anterior de la rama `glendy` falló, seguida por ejecuciones correctas.**
+- [x] Actualizar README con configuración, ejecución, pruebas y uso de los seis reportes obligatorios y cuatro consultas complementarias.
+- [x] Contrastar los entregables con el enunciado y registrar limitaciones pendientes. **Auditoría documental del 2026-10-13: Java/Swing/Oracle, seis reportes obligatorios con JTable, SQL de esquema y datos, diagramas UML/ER e historial Git con commits en más de cinco días distintos; limitaciones manuales permanecen registradas abajo.**
 
 Criterio de cierre: los 6 reportes obligatorios implementados y verificados en `FormReportes` mediante `JTable`, flujo completo verificado y aplicación ejecutable con documentación suficiente.
 
-Implementación histórica del 2026-10-04 y actualización del 2026-10-08: en 2026-10-04 se definió un alcance provisional de 4 vistas tabulares. El 2026-10-08 se analizó `Proyecto_Pan_Puntos_y_Premios.pdf`, formalizando la lista de los 6 reportes obligatorios requeridos para la ponderación completa de la rúbrica (Criterio 8: 2 puntos).
+Implementación histórica del 2026-10-04 y auditoría documental del 2026-10-13: el enunciado define seis reportes obligatorios; las cuatro consultas generales existentes se conservan como opciones complementarias. El código y las pruebas aisladas cubren los seis reportes obligatorios. El JAR abrió y el usuario confirmó que consultó los seis reportes. Fase 8 cerrada el 2026-10-13: el usuario confirmó la coincidencia de los seis reportes con Oracle, que la ventana continuó respondiendo tras cerrar ORA-12541, que el portal web publicado funciona y compartió las tres ejecuciones más recientes de Java CI en estado exitoso. Una ejecución anterior falló y fue seguida por ejecuciones verdes.
 
 ## Cómo se verá y correrá la interfaz (Fase 3 en adelante)
 
@@ -333,11 +335,11 @@ Ambas integraciones usan datos temporales únicos y ejecutan su limpieza al fina
 | Interfaz | Java Swing, conforme al diseño existente | Implementada para clientes, productos, menús e inventario |
 | Lógica de negocio | Servicios Java y DAO JDBC; no duplicar reglas entre capas | Implementada y probada para fases 2 a 4 |
 | PL/SQL | Confirmar si el enunciado exige funciones o procedimientos almacenados | Pendiente |
-| Reportes | Confirmados los 6 reportes obligatorios de la Sección 14 del PDF; actualizar DAO, servicio y FormReportes para cubrirlos formalmente | En curso |
+| Reportes | Seis reportes obligatorios implementados en DAO, servicio, FormReportes y pruebas H2; el usuario confirmó la revisión visual y coincidencia contra Oracle | Completada |
 | Anulaciones | Solo pedidos pendientes; devoluciones de ventas pagadas fuera de este alcance | Implementada con bloqueo frente a cobros |
 | Entrega de pedidos | Botón Marcar entregado en cobro y comprobantes; solo desde PAGADO | Implementada y probada en H2 |
 | Menús | Un componente de cada categoría; el esquema actual no garantiza por sí solo esta composición | Validado en `MenuServicio`; fase 4 completada |
-| Inventario inicial | Datos de ejemplo con stock, pero sin movimientos de abastecimiento | Resolver en fase 1 |
+| Inventario inicial | Las existencias actuales concuerdan con los datos semilla conocidos y con los movimientos registrados; no se crearon movimientos históricos sin fecha verificable | Conciliado en fase 1 el 2026-10-13 |
 | Cobro con tarjeta | Aprobación o rechazo seleccionable; referencia SIM, sin datos de tarjeta | Implementado y probado en H2 |
 | Android/API | El diseño lo marca como extra; no forma parte de estas ocho fases | Opcional, fuera del alcance inicial |
 
@@ -345,6 +347,12 @@ Ambas integraciones usan datos temporales únicos y ejecutan su limpieza al fina
 
 | Fecha | Fase / actividad | Trabajo realizado | Archivos afectados | Verificación / evidencia | Pendientes |
 |---|---|---|---|---|---|
+| 2026-10-13 | Cierre de fase 1: conciliación de inventario | Se compararon existencias de los siete productos con el último movimiento y con los datos semilla conocidos; se cerró la fase sin agregar registros históricos | `result.json`, `sql/verificar_inventario_movimientos.sql`, `PLAN_IMPLEMENTACION.md` | Todos los productos con movimientos coinciden con `existencia_resultante`; `SAN001`, `BEB001` y `ACO001` concuerdan con saldo semilla menos ventas; `SAN002` conserva las 20 unidades semilla sin movimientos; `POLLO`, `BRW001` y `BEB002` concuerdan con los abastecimientos y ventas reportados. Solo lectura; ninguna escritura en Oracle | Completar pendientes de fase 8 y verificar CI |
+| 2026-10-13 | Revisión de resultados SQL de los seis reportes | Se analizaron los resultados que el usuario exportó tras ejecutar `sql/verificar_reportes_fase8.sql` | `result.json`, `sql/verificar_reportes_fase8.sql`, `PLAN_IMPLEMENTACION.md` | Las consultas devolvieron resultados sin errores; ventas suman 14,143 (10 efectivo + 14,133 tarjeta), productos vendidos concuerdan con los componentes del menú, bajo inventario y canjes no tienen filas, saldo de puntos de Tony es 56 y el menú MEN003 registra 7 unidades/14,133. El 2026-10-14 el usuario confirmó que los seis reportes coinciden visualmente con Oracle; probó el enlace de correo en producción y confirmó que abre el portal; también confirmó que la ventana permaneció utilizable al cerrar ORA-12541 | Revisar GitHub Actions |
+| 2026-10-13 | Verificación actual de esquema Oracle | Se revisó el resultado del verificador ejecutado como ADMIN; las 10 tablas base y los objetos de autenticación web están presentes, con restricciones habilitadas y validadas. Se ajustó el conteo esperado de columnas de `CLIENTE` por sus dos columnas adicionales | `result.json`, `sql/verificar_esquema.sql`, `PLAN_IMPLEMENTACION.md` | Resultado aportado por el usuario: 10/10 tablas base `OK`; `CLIENTE_TOKEN_ACCESO` `OK`; `EMAIL_VERIFICADO` y `FECHA_VERIFICACION_EMAIL` `OK`; restricciones reportadas como `ENABLED` y `VALIDATED`. No hubo cambios en Oracle | Validación visual/de reportes contra Oracle; generar y ejecutar JAR final; confirmar CI |
+| 2026-10-13 | Auditoría de instrucciones y actualización de fase 1/8 | Se contrastaron los seis reportes con DAO, servicio, JTable y pruebas; se actualizaron README y seguimiento; se separaron scripts de esquema/datos, se creó un verificador de solo lectura y se actualizó el ER para la tabla de tokens web | `README.md`, `PLAN_IMPLEMENTACION.md`, `diseno_pan_puntos_premios.md`, `sql/crear_esquema.sql`, `sql/datos_demo.sql`, `sql/verificar_esquema.sql` | Revisión estática de código, pruebas existentes y entregables; `git diff --check` sin errores. No se ejecutaron pruebas ni SQL contra Oracle en esa auditoría | Validación visual/Oracle de reportes; generar/ejecutar JAR y confirmar CI |
+| 2026-10-13 | Auditoría de entregables y empaquetado de fase 8 | Se contrastaron las secciones de requisitos y entregables de `Instrucciones.md` con código, SQL, diagramas e historial Git; se generó y abrió el JAR y se consultaron los seis reportes | `PLAN_IMPLEMENTACION.md`, `README.md`, `sql/verificar_reportes_fase8.sql`, `target/pan-puntos-premios-1.0-SNAPSHOT.jar` | Revisión documental; `mvn package`: `BUILD SUCCESS`, 94 pruebas correctas (0 fallos/errores), JAR sombreado de 37,460,411 bytes. El usuario confirma que la interfaz abrió y consultó los reportes; falta comparación independiente contra Oracle | Comparar reportes con `sql/verificar_reportes_fase8.sql`; comprobar manejo de error de conexión; revisar GitHub Actions |
+
 | 2026-10-08 | Auditoría de requisitos del enunciado | Se analizó `Proyecto_Pan_Puntos_y_Premios.pdf` incorporado a la raíz del repositorio; se contrastaron los 6 reportes obligatorios de la Sección 14 con las consultas y vistas actuales; se formalizaron las tareas pendientes de la Fase 8 en el plan de implementación | `PLAN_IMPLEMENTACION.md` | Contraste analítico detallado del PDF contra el código Java y SQL | Implementar consultas SQL en DAO, servicio y opciones en `FormReportes` para los 6 reportes obligatorios |
 | 2026-10-04 | Correcciones de fase 7 e inicio de fase 8 | Se serializaron las consultas de historial; se probó rollback después de una escritura; se implementaron consultas y pantalla de reportes provisionales | `FormPuntosYCanjes.java`, `PuntosYCanjesServicioTest.java`, DAO/servicio/modelo/formulario de reportes, `VentanaPrincipal.java`, `README.md`, `PLAN_IMPLEMENTACION.md` | `mvn clean test`: 67 pruebas, 0 fallos, 0 errores, 0 omitidas; incluye canje con rollback forzado y flujo integral de reportes en H2 | Confirmar reportes exactos con enunciado; revisión visual/Oracle de reportes; generar y ejecutar JAR final |
 | 2026-10-04 | Auditoría de fase 7 en `aaf4761` | Comparación del plan con los DAO, servicio, vista y pruebas del commit | `PLAN_IMPLEMENTACION.md` | `mvn --batch-mode --no-transfer-progress clean test`: 61 pruebas correctas. Se confirmó que la prueba de stock no fuerza rollback tras escrituras y se detectó que las dos consultas de historial comparten conexión y estado de tarea | Serializar/aislar las cargas de historiales y añadir una prueba de rollback después de una escritura; fase 7 queda en curso |
